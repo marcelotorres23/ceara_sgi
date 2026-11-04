@@ -1,0 +1,82 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: sgi-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sgi}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      POSTGRES_DB: ${POSTGRES_DB:-sgi_ceara}
+      TZ: America/Fortaleza
+    ports: ["5434:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sgi} -d ${POSTGRES_DB:-sgi_ceara}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: sgi-redis
+    ports: ["6380:6379"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    container_name: sgi-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-sgi}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-change-me}
+    ports: ["9000:9000", "9001:9001"]
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # A API e a web em container servem a imagem construida. Em desenvolvimento quem roda e o
+  # servidor de fonte, com recarga automatica — por isso as duas ficam atras de um profile:
+  # `docker compose up -d` sobe so a infraestrutura, e elas nao disputam as portas 3333/5173.
+  # Para subir a versao construida: `docker compose --profile empacotado up -d`.
+  api:
+    profiles: ["empacotado"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: sgi-api
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sgi}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/${POSTGRES_DB:-sgi_ceara}?schema=public
+      REDIS_URL: redis://redis:6379
+      S3_ENDPOINT: http://minio:9000
+    ports: ["3333:3333"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      minio: { condition: service_started }
+
+  web:
+    profiles: ["empacotado"]
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: sgi-web
+    environment:
+      VITE_API_URL: http://localhost:3333
+    ports: ["5173:5173"]
+    depends_on: [api]
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:

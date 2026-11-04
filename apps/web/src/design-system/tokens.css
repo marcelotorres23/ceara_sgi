@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Tokens da marca - fonte unica de verdade no CSS (espelha tailwind.config.js) */
+:root {
+  --ceara-azul: #16469d;
+  --ceara-ouro: #f3ae00;
+  --ceara-branco: #ffffff;
+  --ceara-azul-fundo: #09409d;
+  --ceara-texto: #141414;
+  --ceara-texto-2: #5a5a5a;
+  --ceara-nevoa: #f2f4f8;
+  --ceara-verde: #1e7a44;
+  --ceara-vermelho: #c0392b;
+  --ceara-azul-10: rgba(22, 70, 157, 0.1);
+  --ceara-ouro-15: rgba(243, 174, 0, 0.15);
+  --borda: #e3e7ee;
+}
+
+@layer base {
+  html {
+    font-family: Inter, 'Segoe UI', Calibri, Arial, sans-serif;
+  }
+  body {
+    @apply bg-ceara-nevoa text-ceara-texto text-corpo antialiased;
+  }
+  /* Foco visivel sempre - acessibilidade nao e opcional */
+  :focus-visible {
+    outline: 2px solid var(--ceara-azul);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* H2 de secao: azul com filete dourado de 2px (secao 4.3) */
+  .h2-secao {
+    @apply text-h2 text-ceara-azul pb-1 inline-block;
+    border-bottom: 2px solid var(--ceara-ouro);
+  }
+}
+
+/*
+ * Impressao (secao 7.5): a folha da OS vai para a bancada do mecanico.
+ *
+ * O sistema inteiro some e sobra so a folha, em preto no branco. Nada de barra lateral,
+ * topo ou botao gastando tinta e espaco de papel.
+ */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  /* fora da folha, nada se imprime */
+  body:has(.folha-os) aside,
+  body:has(.folha-os) header:not(.folha-os header),
+  body:has(.folha-os) nav {
+    display: none !important;
+  }
+
+  .folha-os {
+    color: #000;
+  }
+
+  /* a tabela de itens nao pode quebrar uma linha ao meio entre paginas */
+  .folha-os tr,
+  .folha-os section {
+    break-inside: avoid;
+  }
+}

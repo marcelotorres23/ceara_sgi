@@ -1,0 +1,2541 @@
+// SGI Ceara - schema Prisma
+// Escopo atual: M0 Governanca (F0) + M1 Compras (F1). M2..M4 entram nas fases seguintes
+// (ver docs/eloforte.md secao 12). Convencoes: tabelas e colunas em snake_case,
+// PK UUID v7 gerada na aplicacao, soft delete universal, dinheiro em Decimal(14,2).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------- enums
+
+enum Carteira {
+  TECNICA
+  CONSUMO
+}
+
+enum DecisaoAprovacao {
+  APROVADO
+  APROVADO_COM_RESSALVA
+  DEVOLVIDO
+  REPROVADO
+}
+
+enum SeveridadeAuditoria {
+  INFO
+  ALERTA
+  SOD_VIOLATION
+  CRITICO
+}
+
+enum CanalNotificacao {
+  IN_APP
+  EMAIL
+  WHATSAPP
+}
+
+/// P1 parada de operacao - P4 reposicao/projeto (secao 6.5)
+enum Criticidade {
+  P1
+  P2
+  P3
+  P4
+}
+
+/// O que se esta pedindo. Muda o documento fiscal no fim da linha: material sai em NF-e
+/// com chave de 44 digitos; servico sai em NFS-e municipal, que nao tem chave (secao 6.1.11).
+enum TipoDemanda {
+  MATERIAL
+  SERVICO
+}
+
+enum StatusSolicitacao {
+  RASCUNHO
+  ABERTA
+  EM_TRIAGEM
+  DEVOLVIDA
+  EM_LOTE
+  ATENDIDA
+  CANCELADA
+}
+
+/// Estados do lote e colunas do Kanban (secao 6.2)
+enum StatusLote {
+  RASCUNHO
+  TRIAGEM
+  EM_COTACAO
+  MAPA_PRONTO
+  AGUARDANDO_APROVACAO
+  APROVADO
+  PEDIDO_EMITIDO
+  AGUARDANDO_ENTREGA
+  RECEBIDO_PARCIAL
+  RECEBIDO
+  NF_LANCADA
+  ENCERRADO
+  DEVOLVIDO_AO_SOLICITANTE
+  EM_RENEGOCIACAO
+  REPROVADO
+  CANCELADO
+  BLOQUEADO_DIVERGENCIA
+}
+
+enum StatusFornecedor {
+  EM_ANALISE
+  HOMOLOGADO
+  BLOQUEADO
+}
+
+enum StatusHomologacaoItem {
+  EM_ANALISE
+  HOMOLOGADO
+  REPROVADO
+}
+
+enum CurvaABC {
+  A
+  B
+  C
+}
+
+enum TipoFrete {
+  CIF
+  FOB
+}
+
+enum StatusPedido {
+  EMITIDO
+  CONFIRMADO
+  PARCIALMENTE_RECEBIDO
+  RECEBIDO
+  CANCELADO
+}
+
+enum StatusRecebimento {
+  EM_CONFERENCIA
+  ACEITE_TOTAL
+  ACEITE_PARCIAL
+  RECUSADO
+}
+
+/// Tipos de divergencia apurados no three-way match (secao 6.1.10)
+enum TipoDivergencia {
+  QUANTIDADE_MENOR
+  QUANTIDADE_MAIOR
+  PRECO_ACIMA_TOLERANCIA
+  ESPECIFICACAO
+  AVARIA
+  DOCUMENTACAO
+}
+
+enum StatusTitulo {
+  PROVISIONADO
+  LIBERADO
+  PAGO
+  BLOQUEADO
+  CANCELADO
+}
+
+/// Movimentacoes de estoque (secao 8.2). Nenhuma se exclui - estorna-se com lancamento contrario.
+enum TipoMovimentacao {
+  ENTRADA_COMPRA
+  ENTRADA_DEVOLUCAO
+  ENTRADA_TRANSFERENCIA
+  ENTRADA_AJUSTE
+  ENTRADA_ESTORNO
+  SAIDA_REQUISICAO
+  SAIDA_TRANSFERENCIA
+  SAIDA_AJUSTE
+  SAIDA_DESCARTE
+  SAIDA_ESTORNO
+}
+
+enum StatusInventario {
+  EM_CONTAGEM
+  AGUARDANDO_APROVACAO
+  APROVADO
+  CANCELADO
+}
+
+enum TipoVeiculo {
+  TRUCK
+  TOCO
+  CARRETA
+  UTILITARIO
+  VAN
+  MOTO
+  /// tipos da frota real (planilha de frota): 3/4, truck 3/4, cacamba e semi-reboque
+  TRES_QUARTOS
+  TRUCK_TRES_QUARTOS
+  CACAMBA
+  SEMI_REBOQUE
+}
+
+/// Como o equipamento de frio e acionado (secao 7.1)
+enum TipoAcionamentoFrio {
+  DIESEL
+  DIESEL_ELETRICO
+  /// acoplado ao motor do veiculo, com apoio eletrico
+  ACOPLADO_ELETRICO
+  INOPERANTE
+}
+
+enum StatusEquipamentoFrio {
+  ATIVO
+  INATIVO
+  EM_MANUTENCAO
+}
+
+enum StatusVeiculo {
+  ATIVO
+  MANUTENCAO
+  INATIVO
+  VENDIDO
+}
+
+enum StatusMotorista {
+  ATIVO
+  AFASTADO
+  INATIVO
+}
+
+// ---------------------------------------------------------------- F7 pneus e manutencao
+
+enum TipoPneu {
+  NOVO
+  RECAPADO
+}
+
+/// Ciclo de vida do pneu (secao 7.4): estoque -> em uso -> rodizio -> recapagem -> sucata
+enum StatusPneu {
+  EM_ESTOQUE
+  EM_USO
+  EM_RECAPAGEM
+  EM_REPARO
+  SUCATA
+}
+
+enum TipoMovimentacaoPneu {
+  INSTALACAO
+  RODIZIO
+  REMOCAO
+  ENVIO_RECAPAGEM
+  RETORNO_RECAPAGEM
+  ENVIO_REPARO
+  RETORNO_REPARO
+  SUCATEAMENTO
+}
+
+/// Gatilho do plano preventivo: quilometragem, horas de motor ou data (secao 7.5)
+enum GatilhoManutencao {
+  KM
+  HORAS
+  DIAS
+}
+
+/// Servicos periodicos da frota: vencem por rodagem, por hora de aparelho ou por calendario (secao 7.10).
+enum TipoServicoPeriodico {
+  LUBRIFICACAO
+  OLEO_MOTOR
+  OLEO_DIFERENCIAL
+  OLEO_CAIXA_MARCHA
+  OLEO_THERMO_KING
+  ALINHAMENTO
+  BALANCEAMENTO
+}
+
+/// O que conta o vencimento: km do veiculo, hora do equipamento ou dia do calendario.
+///
+/// `DIAS` e do plano, e nao do tipo: a lubrificacao de chassi vence de 10 em 10 dias hoje,
+/// e o gestor pode passar qualquer servico para calendario - ou de volta para rodagem.
+enum BaseMedicao {
+  HODOMETRO
+  HORIMETRO
+  DIAS
+}
+
+/// Ciclo da bateria (secao 7.11). Ela envelhece parada: por isso estoque tambem e estado.
+enum StatusBateria {
+  EM_ESTOQUE
+  EM_USO
+  EM_ANALISE_GARANTIA
+  SUCATA
+}
+
+/// De onde veio a leitura do medidor (ADR 0023, decisao 6).
+///
+/// Odometro que muda sem dizer de onde veio transforma o painel em opiniao. A origem
+/// tambem pondera a media de km/dia: leitura digitada vale menos que a que veio presa a
+/// um fato operacional — abastecimento, checklist, passagem na portaria —, porque e ela
+/// que costuma trazer digito trocado.
+enum OrigemLeitura {
+  ABASTECIMENTO
+  EXECUCAO_OFICINA
+  CHECKLIST
+  PORTARIA
+  DIGITACAO
+  IMPORTACAO_LEGADO
+}
+
+/// Qual medidor foi lido: os tres nao se misturam (ADR 0023, decisao 4).
+enum TipoMedidor {
+  ODOMETRO
+  HORIMETRO_VEICULO
+  HORIMETRO_FRIO
+}
+
+/// Leitura que nao fecha com a anterior e precisa de olho humano.
+enum SuspeitaLeitura {
+  REGRESSAO
+  SALTO
+}
+
+enum TipoOrdemServico {
+  PREVENTIVA
+  CORRETIVA
+}
+
+/// De onde nasceu a OS - rastreia o que originou o custo (secao 7.5)
+enum OrigemOrdemServico {
+  PLANO
+  CHECKLIST
+  MOTORISTA
+  ANOMALIA_ABASTECIMENTO
+  INSPECAO_PNEU
+  /// nasceu da pendencia de uma OS concluida parcialmente
+  OS_PARCIAL
+  MANUAL
+}
+
+/// Como o servico terminou de fato, e nao como estava previsto (secao 7.5)
+enum TipoConclusaoOs {
+  TOTAL
+  PARCIAL
+}
+
+enum StatusOrdemServico {
+  ABERTA
+  EM_EXECUCAO
+  AGUARDANDO_PECA
+  CONCLUIDA
+  CANCELADA
+}
+
+// ---------------------------------------------------------------- F8 pessoas e multas
+
+enum GravidadeMulta {
+  LEVE
+  MEDIA
+  GRAVE
+  GRAVISSIMA
+}
+
+enum StatusMulta {
+  REGISTRADA
+  CONDUTOR_INDICADO
+  EM_RECURSO
+  PAGA
+  CANCELADA
+}
+
+enum StatusColaborador {
+  ATIVO
+  AFASTADO
+  DESLIGADO
+}
+
+enum TipoCriterio {
+  POSITIVO
+  NEGATIVO
+}
+
+/// Ciclo da ocorrencia (secao 9.2). SUGERIDA e o que o sistema propos e ainda
+/// nao valeu; REVERTIDA permanece no historico, nunca e apagada.
+enum StatusOcorrencia {
+  SUGERIDA
+  VALIDADA
+  CONTESTADA
+  MANTIDA
+  REVERTIDA
+  DESCARTADA
+}
+
+/// Anomalias de abastecimento apuradas automaticamente (secao 7.2)
+enum TipoAnomaliaAbastecimento {
+  CONSUMO_FORA_DA_MEDIA
+  LITRAGEM_ACIMA_DO_TANQUE
+  HODOMETRO_RETROCEDEU
+  ABASTECIMENTOS_MUITO_PROXIMOS
+  SEM_CHECKLIST_NO_DIA
+}
+
+// ---------------------------------------------------------------- M0
+
+model Unidade {
+  id        String    @id
+  codigo    String    @unique
+  nome      String
+  cidade    String?
+  uf        String?   @db.Char(2)
+  ativo     Boolean   @default(true)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+
+  usuarios      Usuario[]
+  centrosCusto  CentroCusto[]
+  almoxarifados Almoxarifado[]
+  veiculos      Veiculo[]
+  motoristas    Motorista[]
+  solicitacoes  Solicitacao[]
+  lotes         Lote[]
+  pneus         Pneu[]
+  ordensServico OrdemServico[]
+  multas        Multa[]
+  colaboradores Colaborador[]
+  Tanque        Tanque[]
+
+  equipamentosFrio    EquipamentoFrio[]
+  pontosAcesso        PontoAcesso[]
+  pessoasExternas     PessoaExterna[]
+  acessosPortaria     AcessoPortaria[]
+  rotas               Rota[]
+  planosPeriodicos    PlanoServicoPeriodico[]
+  servicosPeriodicos  ServicoPeriodico[]
+  baterias            Bateria[]
+  leituras            Leitura[]
+  ocorrenciasPortaria OcorrenciaPortaria[]
+
+  @@map("unidades")
+}
+
+model CentroCusto {
+  id              String    @id
+  codigo          String    @unique
+  nome            String
+  unidadeId       String    @map("unidade_id")
+  responsavelId   String?   @map("responsavel_id")
+  orcamentoMensal Decimal?  @map("orcamento_mensal") @db.Decimal(14, 2)
+  ativo           Boolean   @default(true)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdBy       String?   @map("created_by")
+  updatedBy       String?   @map("updated_by")
+
+  unidade      Unidade       @relation(fields: [unidadeId], references: [id])
+  responsavel  Usuario?      @relation("CentroCustoResponsavel", fields: [responsavelId], references: [id])
+  usuarios     Usuario[]     @relation("UsuarioCentroCusto")
+  solicitacoes Solicitacao[]
+  veiculos     Veiculo[]
+
+  @@index([unidadeId])
+  @@map("centros_custo")
+}
+
+model Usuario {
+  id              String    @id
+  nome            String
+  email           String    @unique
+  /// nome de guerra no WinThor (PCEMPR); com ele, a senha e conferida no Oracle e nao aqui
+  loginWinthor    String?   @unique @map("login_winthor")
+  senhaHash       String    @map("senha_hash")
+  telefone        String?
+  fotoUrl         String?   @map("foto_url")
+  ativo           Boolean   @default(true)
+  unidadeId       String?   @map("unidade_id")
+  centroCustoId   String?   @map("centro_custo_id")
+  mfaSecret       String?   @map("mfa_secret")
+  ultimoLoginEm   DateTime? @map("ultimo_login_em") @db.Timestamptz(3)
+  /// senha definida por terceiro (cadastro ou reset): so o dono encerra isso trocando (secao 5.1)
+  deveTrocarSenha Boolean   @default(false) @map("deve_trocar_senha")
+  senhaTrocadaEm  DateTime? @map("senha_trocada_em") @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdBy       String?   @map("created_by")
+  updatedBy       String?   @map("updated_by")
+
+  unidade                Unidade?         @relation(fields: [unidadeId], references: [id])
+  centroCusto            CentroCusto?     @relation("UsuarioCentroCusto", fields: [centroCustoId], references: [id])
+  centrosSobGestao       CentroCusto[]    @relation("CentroCustoResponsavel")
+  perfis                 UsuarioPerfil[]
+  sessoes                Sessao[]
+  notificacoes           Notificacao[]
+  auditorias             Auditoria[]
+  anexos                 Anexo[]
+  solicitacoes           Solicitacao[]    @relation("SolicitacaoSolicitante")
+  lotes                  Lote[]           @relation("LoteComprador")
+  aprovacoes             Aprovacao[]
+  notasEmLotes           LoteNota[]
+  recebimentos           Recebimento[]    @relation("RecebimentoAlmoxarife")
+  almoxarifados          Almoxarifado[]   @relation("AlmoxarifadoResponsavel")
+  movimentacoes          Movimentacao[]   @relation("MovimentacaoUsuario")
+  motorista              Motorista?       @relation("MotoristaUsuario")
+  colaborador            Colaborador?     @relation("ColaboradorUsuario")
+  /// portaria: a quem a visita se destina, e quem autorizou a entrada (secao 14.2)
+  acessosComoResponsavel AcessoPortaria[] @relation("AcessoResponsavel")
+  acessosAutorizados     AcessoPortaria[] @relation("AcessoAutorizador")
+
+  @@index([ativo])
+  @@map("usuarios")
+}
+
+model Perfil {
+  id        String    @id
+  nome      String    @unique
+  descricao String?
+  /// perfil de sistema nao pode ser removido nem renomeado
+  sistema   Boolean   @default(false)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  permissoes PerfilPermissao[]
+  usuarios   UsuarioPerfil[]
+  alcadas    Alcada[]
+
+  @@map("perfis")
+}
+
+model Permissao {
+  id        String   @id
+  recurso   String
+  acao      String
+  descricao String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  perfis PerfilPermissao[]
+
+  @@unique([recurso, acao])
+  @@map("permissoes")
+}
+
+model PerfilPermissao {
+  perfilId    String @map("perfil_id")
+  permissaoId String @map("permissao_id")
+
+  perfil    Perfil    @relation(fields: [perfilId], references: [id], onDelete: Cascade)
+  permissao Permissao @relation(fields: [permissaoId], references: [id], onDelete: Cascade)
+
+  @@id([perfilId, permissaoId])
+  @@map("perfil_permissoes")
+}
+
+model UsuarioPerfil {
+  usuarioId String   @map("usuario_id")
+  perfilId  String   @map("perfil_id")
+  /// { unidades: string[], centrosCusto: string[], carteira?: 'TECNICA'|'CONSUMO' }
+  escopo    Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String?  @map("created_by")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  perfil  Perfil  @relation(fields: [perfilId], references: [id], onDelete: Cascade)
+
+  @@id([usuarioId, perfilId])
+  @@map("usuario_perfis")
+}
+
+model Alcada {
+  id                String   @id
+  nivel             Int      @unique
+  valorMin          Decimal  @map("valor_min") @db.Decimal(14, 2)
+  /// null = sem teto (Diretoria)
+  valorMax          Decimal? @map("valor_max") @db.Decimal(14, 2)
+  perfilAprovadorId String   @map("perfil_aprovador_id")
+  propostasMinimas  Int      @map("propostas_minimas")
+  slaHoras          Int      @map("sla_horas")
+  ativo             Boolean  @default(true)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  perfilAprovador Perfil @relation(fields: [perfilAprovadorId], references: [id])
+
+  @@map("alcadas")
+}
+
+model Parametro {
+  id                  String   @id
+  chave               String   @unique
+  valor               Json
+  descricao           String?
+  editavelPorPerfilId String?  @map("editavel_por_perfil_id")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy           String?  @map("updated_by")
+
+  @@map("parametros")
+}
+
+/// Append-only. Sem UPDATE/DELETE - garantido por trigger e REVOKE na migration.
+model Auditoria {
+  id            String              @id
+  timestamp     DateTime            @default(now()) @db.Timestamptz(3)
+  usuarioId     String?             @map("usuario_id")
+  ip            String?
+  userAgent     String?             @map("user_agent")
+  entidade      String
+  entidadeId    String?             @map("entidade_id")
+  acao          String
+  valorAnterior Json?               @map("valor_anterior")
+  valorNovo     Json?               @map("valor_novo")
+  severidade    SeveridadeAuditoria @default(INFO)
+  hashAnterior  String?             @map("hash_anterior")
+  hash          String
+
+  usuario Usuario? @relation(fields: [usuarioId], references: [id])
+
+  @@index([entidade, entidadeId])
+  @@index([usuarioId, timestamp])
+  @@index([severidade, timestamp])
+  /// Apoia a verificacao da cadeia de hash, que le a trilha inteira em ordem.
+  /// Criado pela migration `auditoria_append_only`; declarado aqui para que o
+  /// datamodel o conheca - sem isso todo `migrate diff` futuro tenta remove-lo.
+  @@index([timestamp, id], map: "idx_auditoria_cadeia")
+  @@map("auditoria")
+}
+
+model Sessao {
+  id          String    @id
+  usuarioId   String    @map("usuario_id")
+  /// sha256 do refresh token - o token cru nunca e persistido
+  refreshHash String    @unique @map("refresh_hash")
+  ip          String?
+  userAgent   String?   @map("user_agent")
+  expiraEm    DateTime  @map("expira_em") @db.Timestamptz(3)
+  revogadaEm  DateTime? @map("revogada_em") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@map("sessoes")
+}
+
+model Notificacao {
+  id         String           @id
+  usuarioId  String           @map("usuario_id")
+  canal      CanalNotificacao @default(IN_APP)
+  titulo     String
+  corpo      String
+  entidade   String?
+  entidadeId String?          @map("entidade_id")
+  lidaEm     DateTime?        @map("lida_em") @db.Timestamptz(3)
+  enviadaEm  DateTime?        @map("enviada_em") @db.Timestamptz(3)
+  createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  // ---- fila de saida (F10): entrega assincrona com tentativa, backoff e erro visivel
+  /// quantas vezes a entrega ja foi tentada
+  tentativas         Int       @default(0)
+  /// quando a proxima tentativa pode acontecer; null significa "pode agora"
+  proximaTentativaEm DateTime? @map("proxima_tentativa_em") @db.Timestamptz(3)
+  /// motivo da ultima falha - fica visivel, nunca some no log
+  ultimoErro         String?   @map("ultimo_erro")
+  /// desistiu apos esgotar as tentativas; exige acao humana
+  descartadaEm       DateTime? @map("descartada_em") @db.Timestamptz(3)
+  /// identificador devolvido pelo provedor, quando ha
+  referenciaExterna  String?   @map("referencia_externa")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId, lidaEm])
+  @@index([enviadaEm, descartadaEm, proximaTentativaEm])
+  @@map("notificacoes")
+}
+
+/// Fila de saida para quem NAO e usuario do sistema: motorista, fornecedor, cliente.
+///
+/// `notificacoes` exige `usuario_id` porque tem caixa de entrada dentro do sistema;
+/// o motorista que recebe a ficha de largada no WhatsApp nao tem login, e forcar um
+/// usuario fantasma so para caber na tabela sujaria o cadastro de gente. A politica de
+/// entrega e a mesma (`core/notifications/entrega.ts`): tentativa, backoff e erro visivel.
+model MensagemExterna {
+  id     String           @id
+  canal  CanalNotificacao @default(WHATSAPP)
+  titulo String
+  corpo  String
+
+  /// destinatario congelado no envio: o cadastro pode mudar de telefone depois,
+  /// mas o que se prova e para onde a mensagem foi naquele dia
+  destinatarioNome     String  @map("destinatario_nome")
+  destinatarioTelefone String? @map("destinatario_telefone")
+  destinatarioEmail    String? @map("destinatario_email")
+
+  /// o que a mensagem carrega: entidade de origem e o anexo despachado, quando ha
+  entidade   String?
+  entidadeId String? @map("entidade_id")
+  anexoId    String? @map("anexo_id")
+
+  // ---- mesma fila de saida das notificacoes (F10)
+  tentativas         Int       @default(0)
+  enviadaEm          DateTime? @map("enviada_em") @db.Timestamptz(3)
+  proximaTentativaEm DateTime? @map("proxima_tentativa_em") @db.Timestamptz(3)
+  ultimoErro         String?   @map("ultimo_erro")
+  descartadaEm       DateTime? @map("descartada_em") @db.Timestamptz(3)
+  referenciaExterna  String?   @map("referencia_externa")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String?  @map("created_by")
+
+  @@index([entidade, entidadeId], map: "mensagens_externas_entidade_idx")
+  // nome explicito: o gerado passa dos 63 caracteres que o Postgres aceita
+  @@index([enviadaEm, descartadaEm, proximaTentativaEm], map: "mensagens_externas_fila_idx")
+  @@map("mensagens_externas")
+}
+
+/// Numeracao sequencial por chave e ano (SOL-2026-0001, LOTE-2026-0001, PC-2026-0001).
+/// Incremento serializado por UPDATE ... RETURNING dentro da transacao de criacao.
+model Sequencia {
+  chave  String
+  ano    Int
+  ultimo Int    @default(0)
+
+  @@id([chave, ano])
+  @@map("sequencias")
+}
+
+model Anexo {
+  id         String    @id
+  entidade   String
+  entidadeId String    @map("entidade_id")
+  nome       String
+  mime       String
+  tamanho    Int
+  url        String
+  hashSha256 String    @map("hash_sha256")
+  usuarioId  String    @map("usuario_id")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@index([entidade, entidadeId])
+  @@map("anexos")
+}
+
+// ---------------------------------------------------------------- M1 COMPRAS
+
+model Familia {
+  id        String    @id
+  nome      String
+  paiId     String?   @map("pai_id")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  pai    Familia?  @relation("FamiliaPai", fields: [paiId], references: [id])
+  filhas Familia[] @relation("FamiliaPai")
+  itens  Item[]
+
+  @@map("familias")
+}
+
+/// Catalogo curado. Item novo entra por fila de homologacao (secao 6.1.1).
+model Item {
+  id                String                @id
+  codigo            String                @unique
+  descricao         String
+  especificacao     String?
+  familiaId         String?               @map("familia_id")
+  unidadeMedida     String                @map("unidade_medida")
+  codigoFabricante  String?               @map("codigo_fabricante")
+  curvaAbc          CurvaABC?             @map("curva_abc")
+  critico           Boolean               @default(false)
+  precoMedio        Decimal?              @map("preco_medio") @db.Decimal(14, 2)
+  statusHomologacao StatusHomologacaoItem @default(EM_ANALISE) @map("status_homologacao")
+  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt         DateTime?             @map("deleted_at") @db.Timestamptz(3)
+  createdBy         String?               @map("created_by")
+  updatedBy         String?               @map("updated_by")
+
+  /// Inativacao: nada se exclui, inativa-se com motivo e trilha (regra de ouro 2)
+  inativadoEm      DateTime?          @map("inativado_em") @db.Timestamptz(3)
+  inativadoPor     String?            @map("inativado_por")
+  motivoInativacao String?            @map("motivo_inativacao")
+  familia          Familia?           @relation(fields: [familiaId], references: [id])
+  solicitacaoItens SolicitacaoItem[]
+  pedidoItens      PedidoItem[]
+  saldos           Saldo[]
+  movimentacoes    Movimentacao[]
+  inventarioItens  InventarioItem[]
+  osItens          OrdemServicoItem[]
+  servicosPeriodicos ServicoPeriodico[]
+
+  @@index([familiaId])
+  @@index([statusHomologacao])
+  @@map("itens")
+}
+
+model Fornecedor {
+  id                   String           @id
+  razaoSocial          String           @map("razao_social")
+  nomeFantasia         String?          @map("nome_fantasia")
+  cnpj                 String           @unique
+  ie                   String?
+  endereco             Json?
+  contatos             Json?
+  status               StatusFornecedor @default(EM_ANALISE)
+  homologadoEm         DateTime?        @map("homologado_em") @db.Timestamptz(3)
+  homologacaoValidaAte DateTime?        @map("homologacao_valida_ate") @db.Timestamptz(3)
+  score                Decimal?         @db.Decimal(5, 2)
+  condicaoPadrao       String?          @map("condicao_padrao")
+  createdAt            DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt            DateTime?        @map("deleted_at") @db.Timestamptz(3)
+  createdBy            String?          @map("created_by")
+  updatedBy            String?          @map("updated_by")
+
+  /// Inativacao: nada se exclui, inativa-se com motivo e trilha (regra de ouro 2)
+  inativadoEm        DateTime?             @map("inativado_em") @db.Timestamptz(3)
+  inativadoPor       String?               @map("inativado_por")
+  motivoInativacao   String?               @map("motivo_inativacao")
+  documentos         FornecedorDocumento[]
+  cotacoes           Cotacao[]
+  pedidos            Pedido[]
+  titulos            Titulo[]
+  MovimentacaoTanque MovimentacaoTanque[]
+
+  @@index([status])
+  @@map("fornecedores")
+}
+
+model FornecedorDocumento {
+  id           String    @id
+  fornecedorId String    @map("fornecedor_id")
+  tipo         String
+  numero       String?
+  vencimento   DateTime? @db.Timestamptz(3)
+  anexoId      String?   @map("anexo_id")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  fornecedor Fornecedor @relation(fields: [fornecedorId], references: [id])
+
+  @@index([fornecedorId])
+  @@map("fornecedor_documentos")
+}
+
+/// Sem exclusao - apenas cancelamento com motivo e notificacao (secao 6.1.3).
+model Solicitacao {
+  id                 String            @id
+  numero             String            @unique
+  solicitanteId      String            @map("solicitante_id")
+  /// Denormalizado do centro de custo: relatorio e Kanban filtram por unidade sem join (secao 5.6).
+  unidadeId          String            @map("unidade_id")
+  centroCustoId      String            @map("centro_custo_id")
+  /// Material ou servico, escolhido por quem abre. Define o documento fiscal do fechamento.
+  tipo               TipoDemanda       @default(MATERIAL)
+  criticidade        Criticidade
+  origemDemanda      String            @map("origem_demanda")
+  dataLimite         DateTime          @map("data_limite") @db.Timestamptz(3)
+  status             StatusSolicitacao @default(ABERTA)
+  loteId             String?           @map("lote_id")
+  motivoDevolucao    String?           @map("motivo_devolucao")
+  motivoCancelamento String?           @map("motivo_cancelamento")
+  canceladaPor       String?           @map("cancelada_por")
+  canceladaEm        DateTime?         @map("cancelada_em") @db.Timestamptz(3)
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt          DateTime?         @map("deleted_at") @db.Timestamptz(3)
+  createdBy          String?           @map("created_by")
+  updatedBy          String?           @map("updated_by")
+
+  solicitante Usuario           @relation("SolicitacaoSolicitante", fields: [solicitanteId], references: [id])
+  unidade     Unidade           @relation(fields: [unidadeId], references: [id])
+  centroCusto CentroCusto       @relation(fields: [centroCustoId], references: [id])
+  lote        Lote?             @relation(fields: [loteId], references: [id])
+  itens       SolicitacaoItem[]
+
+  @@index([unidadeId, status])
+  @@index([status, createdAt])
+  @@index([solicitanteId])
+  @@index([loteId])
+  @@index([tipo, status])
+  @@map("solicitacoes")
+}
+
+model SolicitacaoItem {
+  id             String   @id
+  solicitacaoId  String   @map("solicitacao_id")
+  itemId         String?  @map("item_id")
+  descricaoLivre String?  @map("descricao_livre")
+  quantidade     Decimal  @db.Decimal(14, 4)
+  unidadeMedida  String   @map("unidade_medida")
+  observacao     String?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  solicitacao  Solicitacao   @relation(fields: [solicitacaoId], references: [id])
+  item         Item?         @relation(fields: [itemId], references: [id])
+  cotacaoItens CotacaoItem[]
+
+  @@index([solicitacaoId])
+  @@map("solicitacao_itens")
+}
+
+model Lote {
+  id                 String      @id
+  numero             String      @unique
+  compradorId        String      @map("comprador_id")
+  /// Unidade das solicitacoes do lote. Lote nao mistura unidades (secao 5.6).
+  unidadeId          String      @map("unidade_id")
+  /// Herdado das solicitacoes. Lote nao mistura material e servico: o fechamento fiscal
+  /// de cada um e por documento diferente, e um pedido so tem um.
+  tipo               TipoDemanda @default(MATERIAL)
+  status             StatusLote  @default(TRIAGEM)
+  valorEstimado      Decimal?    @map("valor_estimado") @db.Decimal(14, 2)
+  valorFechado       Decimal?    @map("valor_fechado") @db.Decimal(14, 2)
+  criticidade        Criticidade
+  slaVenceEm         DateTime?   @map("sla_vence_em") @db.Timestamptz(3)
+  slaSuspensoEm      DateTime?   @map("sla_suspenso_em") @db.Timestamptz(3)
+  aprovadorId        String?     @map("aprovador_id")
+  aprovadoEm         DateTime?   @map("aprovado_em") @db.Timestamptz(3)
+  nivelAlcada        Int?        @map("nivel_alcada")
+  savings            Decimal?    @db.Decimal(14, 2)
+  motivoCancelamento String?     @map("motivo_cancelamento")
+  createdAt          DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt          DateTime?   @map("deleted_at") @db.Timestamptz(3)
+  createdBy          String?     @map("created_by")
+  updatedBy          String?     @map("updated_by")
+
+  comprador    Usuario         @relation("LoteComprador", fields: [compradorId], references: [id])
+  unidade      Unidade         @relation(fields: [unidadeId], references: [id])
+  solicitacoes Solicitacao[]
+  cotacoes     Cotacao[]
+  mapas        MapaCotacao[]
+  aprovacoes   Aprovacao[]
+  pedidos      Pedido[]
+  transicoes   LoteTransicao[]
+  notas        LoteNota[]
+
+  @@index([unidadeId, status])
+  @@index([status, createdAt])
+  @@index([compradorId])
+  @@map("lotes")
+}
+
+/// Nota rapida do card do Kanban (secao 6.3). Nao se apaga: e registro do acompanhamento.
+model LoteNota {
+  id        String   @id
+  loteId    String   @map("lote_id")
+  usuarioId String   @map("usuario_id")
+  texto     String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  lote    Lote    @relation(fields: [loteId], references: [id])
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@index([loteId, createdAt])
+  @@map("lote_notas")
+}
+
+/// Historico da maquina de estados. Toda transicao passa por aqui - nunca UPDATE status direto.
+model LoteTransicao {
+  id        String     @id
+  loteId    String     @map("lote_id")
+  de        StatusLote
+  para      StatusLote
+  motivo    String?
+  usuarioId String     @map("usuario_id")
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  lote Lote @relation(fields: [loteId], references: [id])
+
+  @@index([loteId, createdAt])
+  @@map("lote_transicoes")
+}
+
+model Cotacao {
+  id                String     @id
+  loteId            String     @map("lote_id")
+  fornecedorId      String     @map("fornecedor_id")
+  enviadaEm         DateTime?  @map("enviada_em") @db.Timestamptz(3)
+  respondidaEm      DateTime?  @map("respondida_em") @db.Timestamptz(3)
+  recusada          Boolean    @default(false)
+  motivoRecusa      String?    @map("motivo_recusa")
+  condicaoPagamento String?    @map("condicao_pagamento")
+  prazoDias         Int?       @map("prazo_dias")
+  descontoAvista    Decimal?   @map("desconto_avista") @db.Decimal(14, 2)
+  freteTipo         TipoFrete? @map("frete_tipo")
+  freteValor        Decimal?   @map("frete_valor") @db.Decimal(14, 2)
+  prazoEntregaDias  Int?       @map("prazo_entrega_dias")
+  valorTotal        Decimal?   @map("valor_total") @db.Decimal(14, 2)
+  valorPresente     Decimal?   @map("valor_presente") @db.Decimal(14, 2)
+  tokenPublico      String     @unique @map("token_publico")
+  createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt         DateTime?  @map("deleted_at") @db.Timestamptz(3)
+
+  lote       Lote          @relation(fields: [loteId], references: [id])
+  fornecedor Fornecedor    @relation(fields: [fornecedorId], references: [id])
+  itens      CotacaoItem[]
+  mapasOnde  MapaCotacao[] @relation("MapaCotacaoRecomendada")
+
+  @@unique([loteId, fornecedorId])
+  @@index([loteId])
+  @@map("cotacoes")
+}
+
+model CotacaoItem {
+  id                String   @id
+  cotacaoId         String   @map("cotacao_id")
+  solicitacaoItemId String   @map("solicitacao_item_id")
+  precoUnitario     Decimal  @map("preco_unitario") @db.Decimal(14, 4)
+  quantidade        Decimal  @db.Decimal(14, 4)
+  marcaOfertada     String?  @map("marca_ofertada")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  cotacao         Cotacao         @relation(fields: [cotacaoId], references: [id])
+  solicitacaoItem SolicitacaoItem @relation(fields: [solicitacaoItemId], references: [id])
+
+  @@unique([cotacaoId, solicitacaoItemId])
+  @@map("cotacao_itens")
+}
+
+/// Comparativo por valor presente, nao por valor de face (secao 6.1.6).
+model MapaCotacao {
+  id                   String   @id
+  loteId               String   @map("lote_id")
+  cotacaoRecomendadaId String?  @map("cotacao_recomendada_id")
+  cotacaoEscolhidaId   String?  @map("cotacao_escolhida_id")
+  taxaMensal           Decimal  @map("taxa_mensal") @db.Decimal(9, 6)
+  geradoEm             DateTime @default(now()) @map("gerado_em") @db.Timestamptz(3)
+  pdfAnexoId           String?  @map("pdf_anexo_id")
+  divergenteMenorPreco Boolean  @default(false) @map("divergente_menor_preco")
+  justificativa        String?
+  /// ranking congelado na geracao, para o usuario poder auditar o numero
+  memoriaCalculo       Json     @map("memoria_calculo")
+  createdBy            String?  @map("created_by")
+
+  lote               Lote     @relation(fields: [loteId], references: [id])
+  cotacaoRecomendada Cotacao? @relation("MapaCotacaoRecomendada", fields: [cotacaoRecomendadaId], references: [id])
+
+  @@index([loteId])
+  @@map("mapas_cotacao")
+}
+
+/// Aprovacao eletronica: identificacao, data/hora, IP e hash (secao 6.1.7). Append-only.
+model Aprovacao {
+  id            String           @id
+  loteId        String           @map("lote_id")
+  aprovadorId   String           @map("aprovador_id")
+  nivel         Int
+  decisao       DecisaoAprovacao
+  ressalva      String?
+  motivo        String?
+  autoaprovacao Boolean          @default(false)
+  decididoEm    DateTime         @default(now()) @map("decidido_em") @db.Timestamptz(3)
+  ip            String?
+  hash          String
+
+  lote      Lote    @relation(fields: [loteId], references: [id])
+  aprovador Usuario @relation(fields: [aprovadorId], references: [id])
+
+  @@index([loteId])
+  @@map("aprovacoes")
+}
+
+model Pedido {
+  id                     String       @id
+  numero                 String       @unique
+  loteId                 String       @map("lote_id")
+  fornecedorId           String       @map("fornecedor_id")
+  valorTotal             Decimal      @map("valor_total") @db.Decimal(14, 2)
+  condicaoPagamento      String?      @map("condicao_pagamento")
+  dataPrometida          DateTime     @map("data_prometida") @db.Timestamptz(3)
+  dataPrometidaOriginal  DateTime     @map("data_prometida_original") @db.Timestamptz(3)
+  dataReprogramada       DateTime?    @map("data_reprogramada") @db.Timestamptz(3)
+  motivoReprogramacao    String?      @map("motivo_reprogramacao")
+  confirmadoFornecedorEm DateTime?    @map("confirmado_fornecedor_em") @db.Timestamptz(3)
+  status                 StatusPedido @default(EMITIDO)
+  createdAt              DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt              DateTime?    @map("deleted_at") @db.Timestamptz(3)
+  createdBy              String?      @map("created_by")
+
+  lote         Lote          @relation(fields: [loteId], references: [id])
+  fornecedor   Fornecedor    @relation(fields: [fornecedorId], references: [id])
+  itens        PedidoItem[]
+  recebimentos Recebimento[]
+
+  @@index([loteId])
+  @@index([status])
+  @@map("pedidos")
+}
+
+model PedidoItem {
+  id                 String   @id
+  pedidoId           String   @map("pedido_id")
+  itemId             String?  @map("item_id")
+  descricao          String
+  quantidade         Decimal  @db.Decimal(14, 4)
+  precoUnitario      Decimal  @map("preco_unitario") @db.Decimal(14, 4)
+  quantidadeRecebida Decimal  @default(0) @map("quantidade_recebida") @db.Decimal(14, 4)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  pedido           Pedido            @relation(fields: [pedidoId], references: [id])
+  item             Item?             @relation(fields: [itemId], references: [id])
+  recebimentoItens RecebimentoItem[]
+
+  @@index([pedidoId])
+  @@map("pedido_itens")
+}
+
+// ---------------------------------------------------------------- F3 RECEBIMENTO E FISCAL
+
+/// Conferencia pedido x NF-e x fisico (secao 6.1.10)
+model Recebimento {
+  id           String            @id
+  pedidoId     String            @map("pedido_id")
+  almoxarifeId String            @map("almoxarife_id")
+  nfNumero     String?           @map("nf_numero")
+  nfChave      String?           @map("nf_chave")
+  nfValor      Decimal?          @map("nf_valor") @db.Decimal(14, 2)
+  nfEmitidaEm  DateTime?         @map("nf_emitida_em") @db.Timestamptz(3)
+  recebidoEm   DateTime          @default(now()) @map("recebido_em") @db.Timestamptz(3)
+  status       StatusRecebimento @default(EM_CONFERENCIA)
+  threeWayOk   Boolean           @default(false) @map("three_way_ok")
+  observacao   String?
+  /// horas entre o recebimento fisico e o lancamento fiscal - indicador da secao 6.1.11
+  fiscalEm     DateTime?         @map("fiscal_em") @db.Timestamptz(3)
+  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt    DateTime?         @map("deleted_at") @db.Timestamptz(3)
+  createdBy    String?           @map("created_by")
+
+  pedido     Pedido            @relation(fields: [pedidoId], references: [id])
+  almoxarife Usuario           @relation("RecebimentoAlmoxarife", fields: [almoxarifeId], references: [id])
+  itens      RecebimentoItem[]
+  titulos    Titulo[]
+
+  @@index([pedidoId])
+  @@index([status])
+  @@map("recebimentos")
+}
+
+model RecebimentoItem {
+  id                 String           @id
+  recebimentoId      String           @map("recebimento_id")
+  pedidoItemId       String           @map("pedido_item_id")
+  quantidadeRecebida Decimal          @map("quantidade_recebida") @db.Decimal(14, 4)
+  /// preco que veio na NF-e, comparado ao do pedido dentro da tolerancia
+  precoNotaFiscal    Decimal?         @map("preco_nota_fiscal") @db.Decimal(14, 4)
+  conforme           Boolean          @default(true)
+  tipoDivergencia    TipoDivergencia? @map("tipo_divergencia")
+  /// item com divergencia tem o pagamento retido (secao 6.1.10)
+  pagamentoRetido    Boolean          @default(false) @map("pagamento_retido")
+  observacao         String?
+  anexoId            String?          @map("anexo_id")
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  recebimento Recebimento @relation(fields: [recebimentoId], references: [id])
+  pedidoItem  PedidoItem  @relation(fields: [pedidoItemId], references: [id])
+
+  @@unique([recebimentoId, pedidoItemId])
+  @@map("recebimento_itens")
+}
+
+/// Titulo so nasce com aceite de recebimento vinculado ao pedido (regra de ouro 4)
+model Titulo {
+  id             String       @id
+  recebimentoId  String       @map("recebimento_id")
+  fornecedorId   String       @map("fornecedor_id")
+  valor          Decimal      @db.Decimal(14, 2)
+  /// parcela do valor retida por divergencia, nao liberada para pagamento
+  valorRetido    Decimal      @default(0) @map("valor_retido") @db.Decimal(14, 2)
+  vencimento     DateTime     @db.Timestamptz(3)
+  condicao       String?
+  status         StatusTitulo @default(PROVISIONADO)
+  bloqueado      Boolean      @default(false)
+  motivoBloqueio String?      @map("motivo_bloqueio")
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(3)
+  createdBy      String?      @map("created_by")
+
+  recebimento Recebimento @relation(fields: [recebimentoId], references: [id])
+  fornecedor  Fornecedor  @relation(fields: [fornecedorId], references: [id])
+
+  @@index([fornecedorId])
+  @@index([status])
+  @@map("titulos")
+}
+
+// ---------------------------------------------------------------- M3 ALMOXARIFADO (F4)
+
+model Almoxarifado {
+  id            String    @id
+  codigo        String    @unique
+  nome          String
+  unidadeId     String    @map("unidade_id")
+  responsavelId String?   @map("responsavel_id")
+  ativo         Boolean   @default(true)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdBy     String?   @map("created_by")
+  updatedBy     String?   @map("updated_by")
+
+  /// Inativacao: nada se exclui, inativa-se com motivo e trilha (regra de ouro 2)
+  inativadoEm      DateTime?      @map("inativado_em") @db.Timestamptz(3)
+  inativadoPor     String?        @map("inativado_por")
+  motivoInativacao String?        @map("motivo_inativacao")
+  unidade          Unidade        @relation(fields: [unidadeId], references: [id])
+  responsavel      Usuario?       @relation("AlmoxarifadoResponsavel", fields: [responsavelId], references: [id])
+  enderecos        Endereco[]
+  saldos           Saldo[]
+  movimentacoes    Movimentacao[]
+  inventarios      Inventario[]
+
+  @@index([unidadeId])
+  @@map("almoxarifados")
+}
+
+/// Enderecamento rua/prateleira/nivel/posicao, com etiqueta QR (secao 8.1)
+model Endereco {
+  id             String    @id
+  almoxarifadoId String    @map("almoxarifado_id")
+  rua            String
+  prateleira     String
+  nivel          String
+  posicao        String
+  codigoQr       String    @unique @map("codigo_qr")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  almoxarifado Almoxarifado @relation(fields: [almoxarifadoId], references: [id])
+  saldos       Saldo[]
+
+  @@unique([almoxarifadoId, rua, prateleira, nivel, posicao])
+  @@map("enderecos")
+}
+
+/// Saldo por item e almoxarifado, com custo medio ponderado movel (secao 8.1)
+model Saldo {
+  id                   String    @id
+  almoxarifadoId       String    @map("almoxarifado_id")
+  itemId               String    @map("item_id")
+  quantidade           Decimal   @default(0) @db.Decimal(14, 4)
+  custoMedio           Decimal   @default(0) @map("custo_medio") @db.Decimal(14, 4)
+  enderecoId           String?   @map("endereco_id")
+  estoqueMinimo        Decimal   @default(0) @map("estoque_minimo") @db.Decimal(14, 4)
+  estoqueMaximo        Decimal?  @map("estoque_maximo") @db.Decimal(14, 4)
+  pontoPedido          Decimal   @default(0) @map("ponto_pedido") @db.Decimal(14, 4)
+  loteEconomico        Decimal?  @map("lote_economico") @db.Decimal(14, 4)
+  leadTimeDias         Int       @default(7) @map("lead_time_dias")
+  consumoMedioMensal   Decimal   @default(0) @map("consumo_medio_mensal") @db.Decimal(14, 4)
+  /// true quando o gestor fixou o ponto de pedido - a sugestao automatica nao sobrescreve
+  pontoPedidoManual    Boolean   @default(false) @map("ponto_pedido_manual")
+  ultimaMovimentacaoEm DateTime? @map("ultima_movimentacao_em") @db.Timestamptz(3)
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  almoxarifado Almoxarifado @relation(fields: [almoxarifadoId], references: [id])
+  item         Item         @relation(fields: [itemId], references: [id])
+  endereco     Endereco?    @relation(fields: [enderecoId], references: [id])
+
+  @@unique([almoxarifadoId, itemId])
+  @@index([itemId])
+  @@map("saldos")
+}
+
+/// Append-only: nada se exclui, apenas se estorna com lancamento contrario (secao 8.2)
+model Movimentacao {
+  id             String           @id
+  almoxarifadoId String           @map("almoxarifado_id")
+  itemId         String           @map("item_id")
+  tipo           TipoMovimentacao
+  /// sempre positiva; o sinal vem do tipo
+  quantidade     Decimal          @db.Decimal(14, 4)
+  custoUnitario  Decimal          @map("custo_unitario") @db.Decimal(14, 4)
+  saldoApos      Decimal          @map("saldo_apos") @db.Decimal(14, 4)
+  custoMedioApos Decimal          @map("custo_medio_apos") @db.Decimal(14, 4)
+  documentoTipo  String?          @map("documento_tipo")
+  documentoId    String?          @map("documento_id")
+  /// saida exige vinculo a veiculo + OS (secao 8.2). FK entra na F5/F7.
+  veiculoId      String?          @map("veiculo_id")
+  osId           String?          @map("os_id")
+  motivo         String?
+  usuarioId      String           @map("usuario_id")
+  estornadaPor   String?          @map("estornada_por")
+  estornoDe      String?          @unique @map("estorno_de")
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  almoxarifado Almoxarifado  @relation(fields: [almoxarifadoId], references: [id])
+  item         Item          @relation(fields: [itemId], references: [id])
+  usuario      Usuario       @relation("MovimentacaoUsuario", fields: [usuarioId], references: [id])
+  original     Movimentacao? @relation("Estorno", fields: [estornoDe], references: [id])
+  estorno      Movimentacao? @relation("Estorno")
+
+  @@index([almoxarifadoId, itemId, createdAt])
+  @@index([documentoTipo, documentoId])
+  @@map("movimentacoes")
+}
+
+/// Contagem ciclica por curva ABC, contagem cega (secao 8.4)
+model Inventario {
+  id             String           @id
+  almoxarifadoId String           @map("almoxarifado_id")
+  tipo           String
+  curva          CurvaABC?
+  iniciadoEm     DateTime         @default(now()) @map("iniciado_em") @db.Timestamptz(3)
+  finalizadoEm   DateTime?        @map("finalizado_em") @db.Timestamptz(3)
+  status         StatusInventario @default(EM_CONTAGEM)
+  acuracidade    Decimal?         @db.Decimal(5, 4)
+  createdBy      String?          @map("created_by")
+
+  almoxarifado Almoxarifado     @relation(fields: [almoxarifadoId], references: [id])
+  itens        InventarioItem[]
+
+  @@index([almoxarifadoId])
+  @@map("inventarios")
+}
+
+model InventarioItem {
+  id               String    @id
+  inventarioId     String    @map("inventario_id")
+  itemId           String    @map("item_id")
+  /// congelado na abertura; o contador NAO ve este numero (contagem cega)
+  saldoSistema     Decimal   @map("saldo_sistema") @db.Decimal(14, 4)
+  saldoContado     Decimal?  @map("saldo_contado") @db.Decimal(14, 4)
+  divergencia      Decimal?  @db.Decimal(14, 4)
+  valorDivergencia Decimal?  @map("valor_divergencia") @db.Decimal(14, 2)
+  motivo           String?
+  anexoId          String?   @map("anexo_id")
+  contadorId       String?   @map("contador_id")
+  aprovadoPor      String?   @map("aprovado_por")
+  contadoEm        DateTime? @map("contado_em") @db.Timestamptz(3)
+
+  inventario Inventario @relation(fields: [inventarioId], references: [id])
+  item       Item       @relation(fields: [itemId], references: [id])
+
+  @@unique([inventarioId, itemId])
+  @@map("inventario_itens")
+}
+
+// ---------------------------------------------------------------- M2 TRANSPORTE (F5)
+
+model Veiculo {
+  id               String        @id
+  /// Unidade que opera o veiculo. Todo dado de frota nasce preso a uma unidade (secao 5.6).
+  unidadeId        String        @map("unidade_id")
+  placa            String        @unique
+  frotaNumero      String        @unique @map("frota_numero")
+  renavam          String?
+  chassi           String?
+  tipo             TipoVeiculo
+  marca            String?
+  modelo           String?
+  ano              Int?
+  configEixos      String?       @map("config_eixos")
+  capacidadeTanque Decimal?      @map("capacidade_tanque") @db.Decimal(10, 2)
+  hodometroAtual   Decimal       @default(0) @map("hodometro_atual") @db.Decimal(12, 1)
+  horimetroAtual   Decimal?      @map("horimetro_atual") @db.Decimal(12, 1)
+  centroCustoId    String?       @map("centro_custo_id")
+  status           StatusVeiculo @default(ATIVO)
+  fotoUrl          String?       @map("foto_url")
+
+  /// Dados da frota real (planilha de controle da distribuidora)
+  /// de quem e o veiculo: a frota opera bens de mais de um CNPJ do grupo
+  propriedade      String?
+  cnpjProprietario String?   @map("cnpj_proprietario")
+  /// capacidade de carga em kg - diferente da capacidade do tanque de combustivel
+  capacidadeKg     Decimal?  @map("capacidade_kg") @db.Decimal(10, 2)
+  /// a que o veiculo serve: entrega, coleta, passeio
+  finalidade       String?
+  /// situacao como a operacao escreve, que nem sempre cabe no enum: "AÇAILANDIA",
+  /// "VENDIDO - AINDA ESTA DIST", "CHASSIS". O enum diz se roda; isto diz o resto.
+  situacaoDescrita String?   @map("situacao_descrita")
+  observacao       String?
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdBy        String?   @map("created_by")
+  updatedBy        String?   @map("updated_by")
+
+  /// Inativacao: nada se exclui, inativa-se com motivo e trilha (regra de ouro 2)
+  inativadoEm       DateTime?          @map("inativado_em") @db.Timestamptz(3)
+  inativadoPor      String?            @map("inativado_por")
+  motivoInativacao  String?            @map("motivo_inativacao")
+  unidade           Unidade            @relation(fields: [unidadeId], references: [id])
+  centroCusto       CentroCusto?       @relation(fields: [centroCustoId], references: [id])
+  documentos        VeiculoDocumento[]
+  posicoesPneu      PosicaoPneu[]
+  motoristasPadrao  Motorista[]        @relation("MotoristaVeiculoPadrao")
+  abastecimentos    Abastecimento[]
+  pneus             Pneu[]
+  pneuMovimentacoes PneuMovimentacao[]
+  planosManutencao  PlanoManutencao[]
+  ordensServico     OrdemServico[]
+  multas            Multa[]
+  tanques           Tanque[]
+  acessosPortaria   AcessoPortaria[]
+  equipamentosFrio  EquipamentoFrio[]
+  servicosPeriodicos ServicoPeriodico[]
+  baterias           Bateria[]
+  leituras           Leitura[]
+
+  @@index([status])
+  @@index([unidadeId])
+  @@map("veiculos")
+}
+
+/// CRLV, seguro, ANTT, tacografo - com alerta em D-30/D-15/D-7 (secao 7.1)
+model VeiculoDocumento {
+  id         String    @id
+  veiculoId  String    @map("veiculo_id")
+  tipo       String
+  numero     String?
+  emissao    DateTime? @db.Timestamptz(3)
+  vencimento DateTime  @db.Timestamptz(3)
+  anexoId    String?   @map("anexo_id")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  veiculo Veiculo @relation(fields: [veiculoId], references: [id])
+
+  @@index([veiculoId])
+  @@index([vencimento])
+  @@map("veiculo_documentos")
+}
+
+/// Mapa de rodagem: posicoes de pneu do veiculo (secao 7.1). O pneu em si entra na F7.
+model PosicaoPneu {
+  id        String @id
+  veiculoId String @map("veiculo_id")
+  codigo    String
+  eixo      Int
+  lado      String
+  ordem     Int
+
+  veiculo       Veiculo            @relation(fields: [veiculoId], references: [id])
+  pneus         Pneu[]
+  movimentacoes PneuMovimentacao[]
+
+  @@unique([veiculoId, codigo])
+  @@map("posicoes_pneu")
+}
+
+model Motorista {
+  id                     String          @id
+  unidadeId              String          @map("unidade_id")
+  usuarioId              String?         @unique @map("usuario_id")
+  nome                   String
+  cpf                    String          @unique
+  cnhNumero              String          @map("cnh_numero")
+  cnhCategoria           String          @map("cnh_categoria")
+  cnhVencimento          DateTime        @map("cnh_vencimento") @db.Timestamptz(3)
+  /// telefone do motorista - e por ele que a ficha de largada chega no WhatsApp (secao 14.7)
+  telefone               String?
+  toxicologicoVencimento DateTime?       @map("toxicologico_vencimento") @db.Timestamptz(3)
+  asoVencimento          DateTime?       @map("aso_vencimento") @db.Timestamptz(3)
+  veiculoPadraoId        String?         @map("veiculo_padrao_id")
+  status                 StatusMotorista @default(ATIVO)
+  fotoUrl                String?         @map("foto_url")
+  createdAt              DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt              DateTime?       @map("deleted_at") @db.Timestamptz(3)
+  createdBy              String?         @map("created_by")
+  updatedBy              String?         @map("updated_by")
+
+  /// Inativacao: nada se exclui, inativa-se com motivo e trilha (regra de ouro 2)
+  inativadoEm      DateTime?        @map("inativado_em") @db.Timestamptz(3)
+  inativadoPor     String?          @map("inativado_por")
+  motivoInativacao String?          @map("motivo_inativacao")
+  unidade          Unidade          @relation(fields: [unidadeId], references: [id])
+  usuario          Usuario?         @relation("MotoristaUsuario", fields: [usuarioId], references: [id])
+  veiculoPadrao    Veiculo?         @relation("MotoristaVeiculoPadrao", fields: [veiculoPadraoId], references: [id])
+  abastecimentos   Abastecimento[]
+  multas           Multa[]
+  acessosPortaria  AcessoPortaria[]
+
+  @@index([status])
+  @@index([unidadeId])
+  @@map("motoristas")
+}
+
+/// Abastecimento com calculo de consumo e deteccao de anomalias (secao 7.2)
+model Abastecimento {
+  id               String    @id
+  veiculoId        String    @map("veiculo_id")
+  motoristaId      String    @map("motorista_id")
+  dataHora         DateTime  @map("data_hora") @db.Timestamptz(3)
+  posto            String
+  postoInterno     Boolean   @default(false) @map("posto_interno")
+  tipoCombustivel  String    @map("tipo_combustivel")
+  litros           Decimal   @db.Decimal(10, 3)
+  valorUnitario    Decimal   @map("valor_unitario") @db.Decimal(10, 4)
+  valorTotal       Decimal   @map("valor_total") @db.Decimal(14, 2)
+  hodometro        Decimal   @db.Decimal(12, 1)
+  horimetro        Decimal?  @db.Decimal(12, 1)
+  formaPagamento   String?   @map("forma_pagamento")
+  numeroCartao     String?   @map("numero_cartao")
+  kmPercorridos    Decimal?  @map("km_percorridos") @db.Decimal(12, 1)
+  consumoKml       Decimal?  @map("consumo_kml") @db.Decimal(10, 3)
+  custoPorKm       Decimal?  @map("custo_por_km") @db.Decimal(10, 4)
+  desvioPercentual Decimal?  @map("desvio_percentual") @db.Decimal(10, 4)
+  anomalia         Boolean   @default(false)
+  /// lista de tipos apurados; vazia quando nao ha anomalia
+  anomaliaTipos    Json      @default("[]") @map("anomalia_tipos")
+  justificativa    String?
+  /// identidade da linha do arquivo importado (F10): reenviar o mesmo arquivo nao duplica
+  chaveImportacao  String?   @unique @map("chave_importacao")
+  fotoPainelId     String?   @map("foto_painel_id")
+  fotoCupomId      String?   @map("foto_cupom_id")
+  /// agenda do dia (secao 7.2): gestor de frota confere e marca o abastecimento como valido
+  confirmado       Boolean   @default(false)
+  confirmadoEm     DateTime? @map("confirmado_em") @db.Timestamptz(3)
+  confirmadoPor    String?   @map("confirmado_por")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdBy        String?   @map("created_by")
+
+  // ---- F11: abastecimento interno com baixa de tanque
+  /// tanque de onde saiu o combustivel; nulo em abastecimento de posto externo
+  tanqueId          String?  @map("tanque_id")
+  bicoId            String?  @map("bico_id")
+  produtoId         String?  @map("produto_id")
+  /// leitura do encerrante da bomba antes e depois - a conferencia mecanica do volume
+  encerranteInicial Decimal? @map("encerrante_inicial") @db.Decimal(14, 3)
+  encerranteFinal   Decimal? @map("encerrante_final") @db.Decimal(14, 3)
+  /// onde a operacao aconteceu: obra, frente de servico, rota ou linha
+  obraLocal         String?  @map("obra_local")
+  rota              String?
+  turno             String?
+  osId              String?  @map("os_id")
+
+  veiculo   Veiculo             @relation(fields: [veiculoId], references: [id])
+  motorista Motorista           @relation(fields: [motoristaId], references: [id])
+  tanque    Tanque?             @relation(fields: [tanqueId], references: [id])
+  bico      Bico?               @relation(fields: [bicoId], references: [id])
+  produto   ProdutoCombustivel? @relation(fields: [produtoId], references: [id])
+
+  @@index([veiculoId, dataHora])
+  @@index([anomalia])
+  @@index([tanqueId, dataHora])
+  // agenda do dia (secao 7.2): filtra pela data, independente do veiculo
+  @@index([dataHora, confirmado])
+  @@map("abastecimentos")
+}
+
+// ---------------------------------------------------------------- F11 ABASTECIMENTO INTERNO
+
+/// Produto abastecido: diesel, Arla 32 ou lubrificante (secao 7.9).
+enum TipoProdutoCombustivel {
+  DIESEL_S10
+  DIESEL_S500
+  GASOLINA
+  ETANOL
+  ARLA32
+  LUBRIFICANTE
+  OUTRO
+}
+
+/// FIXO e o tanque do patio; MOVEL e o caminhao comboio, que leva combustivel a frente de servico.
+enum TipoTanque {
+  FIXO
+  MOVEL
+}
+
+enum TipoMovimentacaoTanque {
+  ENTRADA_COMPRA
+  ENTRADA_TRANSFERENCIA
+  ENTRADA_ACERTO
+  SAIDA_ABASTECIMENTO
+  SAIDA_TRANSFERENCIA
+  SAIDA_ACERTO
+}
+
+model ProdutoCombustivel {
+  id            String                 @id
+  codigo        String                 @unique
+  nome          String
+  tipo          TipoProdutoCombustivel
+  unidadeMedida String                 @default("L") @map("unidade_medida")
+  /// kg/L a 20 C; usado quando a nota vem em quilo e o tanque controla litro
+  densidade     Decimal?               @db.Decimal(8, 4)
+  ativo         Boolean                @default(true)
+  createdAt     DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tanques        Tanque[]
+  abastecimentos Abastecimento[]
+
+  @@map("produtos_combustivel")
+}
+
+/// Tanque de combustivel, fixo ou comboio (secao 7.9). O saldo e em LITROS,
+/// com custo medio ponderado movel - a mesma matematica do almoxarifado.
+model Tanque {
+  id               String     @id
+  unidadeId        String     @map("unidade_id")
+  codigo           String     @unique
+  nome             String
+  tipo             TipoTanque @default(FIXO)
+  produtoId        String     @map("produto_id")
+  capacidadeLitros Decimal    @map("capacidade_litros") @db.Decimal(12, 3)
+  saldoLitros      Decimal    @default(0) @map("saldo_litros") @db.Decimal(12, 3)
+  custoMedio       Decimal    @default(0) @map("custo_medio") @db.Decimal(14, 4)
+  /// comboio: o veiculo que carrega o tanque movel
+  veiculoId        String?    @map("veiculo_id")
+  ativo            Boolean    @default(true)
+  ultimaAfericaoEm DateTime?  @map("ultima_afericao_em") @db.Timestamptz(3)
+  createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt        DateTime?  @map("deleted_at") @db.Timestamptz(3)
+  createdBy        String?    @map("created_by")
+  updatedBy        String?    @map("updated_by")
+
+  /// Inativacao: nada se exclui, inativa-se com motivo e trilha (regra de ouro 2)
+  inativadoEm      DateTime? @map("inativado_em") @db.Timestamptz(3)
+  inativadoPor     String?   @map("inativado_por")
+  motivoInativacao String?   @map("motivo_inativacao")
+
+  unidade        Unidade              @relation(fields: [unidadeId], references: [id])
+  produto        ProdutoCombustivel   @relation(fields: [produtoId], references: [id])
+  veiculo        Veiculo?             @relation(fields: [veiculoId], references: [id])
+  bicos          Bico[]
+  movimentacoes  MovimentacaoTanque[] @relation("MovimentacaoDoTanque")
+  recebidas      MovimentacaoTanque[] @relation("MovimentacaoParaTanque")
+  afericoes      AfericaoTanque[]
+  abastecimentos Abastecimento[]
+
+  @@index([unidadeId, ativo])
+  @@map("tanques")
+}
+
+/// Ponto de abastecimento: o bico da bomba, com o encerrante que ele acumula.
+model Bico {
+  id              String   @id
+  tanqueId        String   @map("tanque_id")
+  codigo          String
+  descricao       String?
+  /// leitura acumulada da bomba; so avanca, e a conferencia mecanica do volume
+  encerranteAtual Decimal  @default(0) @map("encerrante_atual") @db.Decimal(14, 3)
+  ativo           Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tanque         Tanque          @relation(fields: [tanqueId], references: [id])
+  abastecimentos Abastecimento[]
+
+  @@unique([tanqueId, codigo])
+  @@map("bicos")
+}
+
+/// Append-only: cada gota que entra e sai vira registro, nada se apaga (secao 7.9).
+model MovimentacaoTanque {
+  id              String                 @id
+  tanqueId        String                 @map("tanque_id")
+  tipo            TipoMovimentacaoTanque
+  /// sempre positiva; o sinal vem do tipo
+  litros          Decimal                @db.Decimal(12, 3)
+  custoUnitario   Decimal                @default(0) @map("custo_unitario") @db.Decimal(14, 4)
+  custoMedioApos  Decimal                @map("custo_medio_apos") @db.Decimal(14, 4)
+  saldoApos       Decimal                @map("saldo_apos") @db.Decimal(12, 3)
+  /// nota fiscal da compra de combustivel
+  notaFiscal      String?                @map("nota_fiscal")
+  fornecedorId    String?                @map("fornecedor_id")
+  /// destino da transferencia: o comboio que recebeu
+  tanqueDestinoId String?                @map("tanque_destino_id")
+  abastecimentoId String?                @unique @map("abastecimento_id")
+  afericaoId      String?                @map("afericao_id")
+  motivo          String?
+  usuarioId       String                 @map("usuario_id")
+  data            DateTime               @db.Timestamptz(3)
+  createdAt       DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tanque        Tanque      @relation("MovimentacaoDoTanque", fields: [tanqueId], references: [id])
+  tanqueDestino Tanque?     @relation("MovimentacaoParaTanque", fields: [tanqueDestinoId], references: [id])
+  fornecedor    Fornecedor? @relation(fields: [fornecedorId], references: [id])
+
+  @@index([tanqueId, data])
+  @@map("movimentacoes_tanque")
+}
+
+/// Medicao fisica do tanque contra o saldo do sistema (secao 7.9).
+/// Perda dentro da tolerancia e evaporacao; acima dela, alguem precisa explicar.
+model AfericaoTanque {
+  id                 String    @id
+  tanqueId           String    @map("tanque_id")
+  data               DateTime  @db.Timestamptz(3)
+  saldoSistema       Decimal   @map("saldo_sistema") @db.Decimal(12, 3)
+  saldoMedido        Decimal   @map("saldo_medido") @db.Decimal(12, 3)
+  /// medido - sistema: negativo e perda, positivo e sobra
+  diferenca          Decimal   @db.Decimal(12, 3)
+  percentual         Decimal   @db.Decimal(8, 4)
+  dentroDaTolerancia Boolean   @map("dentro_da_tolerancia")
+  motivo             String?
+  anexoId            String?   @map("anexo_id")
+  aferidoPor         String    @map("aferido_por")
+  aprovadoPor        String?   @map("aprovado_por")
+  aprovadoEm         DateTime? @map("aprovado_em") @db.Timestamptz(3)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tanque Tanque @relation(fields: [tanqueId], references: [id])
+
+  @@index([tanqueId, data])
+  @@map("afericoes_tanque")
+}
+
+// ---------------------------------------------------------------- F7 PNEUS E MANUTENCAO
+
+/// Pneu identificado individualmente pelo numero de fogo (secao 7.4).
+/// O custo acumulado soma aquisicao + recapagens + reparos; o CPK deriva dele e do km rodado.
+model Pneu {
+  id                  String     @id
+  unidadeId           String     @map("unidade_id")
+  numeroFogo          String     @unique @map("numero_fogo")
+  serie               String?
+  marca               String
+  modelo              String
+  medida              String
+  dot                 String?
+  tipo                TipoPneu   @default(NOVO)
+  recapagens          Int        @default(0)
+  custoAquisicao      Decimal    @map("custo_aquisicao") @db.Decimal(14, 2)
+  /// aquisicao + recapagens + reparos; base do CPK
+  custoAcumulado      Decimal    @default(0) @map("custo_acumulado") @db.Decimal(14, 2)
+  /// km rodados pelo pneu em toda a vida, somados a cada remocao ou rodizio
+  kmAcumulado         Decimal    @default(0) @map("km_acumulado") @db.Decimal(12, 1)
+  cpk                 Decimal?   @db.Decimal(12, 6)
+  sulcoInicialMm      Decimal?   @map("sulco_inicial_mm") @db.Decimal(5, 2)
+  sulcoAtualMm        Decimal?   @map("sulco_atual_mm") @db.Decimal(5, 2)
+  vidaUtilKm          Decimal?   @map("vida_util_km") @db.Decimal(12, 1)
+  status              StatusPneu @default(EM_ESTOQUE)
+  /// veiculo e posicao ocupados agora; nulos em estoque, recapagem ou sucata
+  veiculoId           String?    @map("veiculo_id")
+  posicaoId           String?    @map("posicao_id")
+  /// hodometro do veiculo na instalacao vigente - base do km rodado apurado na remocao
+  hodometroInstalacao Decimal?   @map("hodometro_instalacao") @db.Decimal(12, 1)
+  createdAt           DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt           DateTime?  @map("deleted_at") @db.Timestamptz(3)
+  createdBy           String?    @map("created_by")
+  updatedBy           String?    @map("updated_by")
+
+  /// Inativacao: nada se exclui, inativa-se com motivo e trilha (regra de ouro 2)
+  inativadoEm      DateTime? @map("inativado_em") @db.Timestamptz(3)
+  inativadoPor     String?   @map("inativado_por")
+  motivoInativacao String?   @map("motivo_inativacao")
+
+  unidade       Unidade            @relation(fields: [unidadeId], references: [id])
+  veiculo       Veiculo?           @relation(fields: [veiculoId], references: [id])
+  posicao       PosicaoPneu?       @relation(fields: [posicaoId], references: [id])
+  movimentacoes PneuMovimentacao[]
+  inspecoes     PneuInspecao[]
+
+  @@index([unidadeId, status])
+  @@index([veiculoId])
+  @@index([marca, modelo])
+  @@map("pneus")
+}
+
+/// Append-only: cada etapa do ciclo de vida vira um registro, nada se apaga (secao 7.4).
+model PneuMovimentacao {
+  id        String               @id
+  pneuId    String               @map("pneu_id")
+  tipo      TipoMovimentacaoPneu
+  veiculoId String?              @map("veiculo_id")
+  posicaoId String?              @map("posicao_id")
+  data      DateTime             @db.Timestamptz(3)
+  hodometro Decimal?             @db.Decimal(12, 1)
+  /// km rodados no periodo encerrado por esta movimentacao
+  kmRodados Decimal?             @map("km_rodados") @db.Decimal(12, 1)
+  sulcoMm   Decimal?             @map("sulco_mm") @db.Decimal(5, 2)
+  custo     Decimal              @default(0) @db.Decimal(14, 2)
+  motivo    String?
+  usuarioId String               @map("usuario_id")
+  createdAt DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  pneu    Pneu         @relation(fields: [pneuId], references: [id])
+  veiculo Veiculo?     @relation(fields: [veiculoId], references: [id])
+  posicao PosicaoPneu? @relation(fields: [posicaoId], references: [id])
+
+  @@index([pneuId, data])
+  @@index([veiculoId, data])
+  @@map("pneu_movimentacoes")
+}
+
+/// Inspecao periodica com sulco, pressao e foto (secao 7.4)
+model PneuInspecao {
+  id         String   @id
+  pneuId     String   @map("pneu_id")
+  data       DateTime @db.Timestamptz(3)
+  sulcoMm    Decimal  @map("sulco_mm") @db.Decimal(5, 2)
+  pressaoPsi Decimal? @map("pressao_psi") @db.Decimal(6, 2)
+  avaria     String?
+  anexoId    String?  @map("anexo_id")
+  inspetorId String   @map("inspetor_id")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  pneu Pneu @relation(fields: [pneuId], references: [id])
+
+  @@index([pneuId, data])
+  @@map("pneu_inspecoes")
+}
+
+/// Plano preventivo com gatilho por km, horas ou data, e alerta antecipado (secao 7.5)
+model PlanoManutencao {
+  id           String            @id
+  veiculoId    String            @map("veiculo_id")
+  descricao    String
+  gatilhoTipo  GatilhoManutencao @map("gatilho_tipo")
+  /// intervalo entre execucoes: km, horas ou dias, conforme o tipo
+  gatilhoValor Decimal           @map("gatilho_valor") @db.Decimal(12, 1)
+  /// antecedencia do alerta, na mesma unidade do gatilho
+  antecedencia Decimal           @db.Decimal(12, 1)
+  /// marcador da ultima execucao: hodometro ou horimetro
+  ultimoValor  Decimal?          @map("ultimo_valor") @db.Decimal(12, 1)
+  ultimoEm     DateTime?         @map("ultimo_em") @db.Timestamptz(3)
+  proximoValor Decimal?          @map("proximo_valor") @db.Decimal(12, 1)
+  proximoEm    DateTime?         @map("proximo_em") @db.Timestamptz(3)
+  ativo        Boolean           @default(true)
+  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt    DateTime?         @map("deleted_at") @db.Timestamptz(3)
+  createdBy    String?           @map("created_by")
+  updatedBy    String?           @map("updated_by")
+
+  veiculo       Veiculo        @relation(fields: [veiculoId], references: [id])
+  ordensServico OrdemServico[]
+
+  @@index([veiculoId, ativo])
+  @@map("planos_manutencao")
+}
+
+/// Regra de vencimento de um servico periodico, valida para a frota (secao 7.6).
+///
+/// E o que as abas da planilha de trocas guardavam na cabeca de quem mantinha o arquivo:
+/// motor a cada 20.000 km, diferencial e caixa a cada 60.000, Thermo King por hora e
+/// alinhamento a cada 10.000. Aqui a regra fica escrita, com dono e trilha.
+///
+/// Diferente de `planos_manutencao`, que e o plano **de um veiculo** (livre, gera OS):
+/// este e a regra **do tipo**, que vale para todo ativo que se encaixa nela.
+model PlanoServicoPeriodico {
+  id        String               @id
+  unidadeId String               @map("unidade_id")
+  tipo      TipoServicoPeriodico
+  base      BaseMedicao
+  /// km ou horas entre uma execucao e a proxima
+  intervalo Decimal              @db.Decimal(12, 1)
+  /// antecedencia do aviso, na mesma unidade do intervalo
+  avisarCom Decimal              @map("avisar_com") @db.Decimal(12, 1)
+  /// prazo maximo em dias desde a ultima execucao; o que vencer primeiro manda (ADR 0023).
+  /// Nulo quando o proprio plano ja vence por calendario, como a lubrificacao.
+  limiteDias Int?                @map("limite_dias")
+  /// quando preenchido, o plano vale so para o modelo do ativo (CARRIER x THERMO KING)
+  modelo    String?
+  ativo     Boolean              @default(true)
+  observacao String?
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+
+  unidade   Unidade            @relation(fields: [unidadeId], references: [id])
+  execucoes ServicoPeriodico[]
+
+  @@unique([unidadeId, tipo, modelo])
+  @@index([unidadeId, tipo])
+  @@map("planos_servico_periodico")
+}
+
+/// Execucao de um servico periodico: a troca que aconteceu (secao 7.6).
+///
+/// Append-only, como toda movimentacao: a linha da planilha era sobrescrita a cada troca
+/// e o historico morria ali. Aqui cada troca e um registro, e a posicao atual e a ultima.
+model ServicoPeriodico {
+  id        String               @id
+  unidadeId String               @map("unidade_id")
+  tipo      TipoServicoPeriodico
+  base      BaseMedicao
+  /// o ativo: veiculo (km) ou equipamento de frio (horas). Sempre um dos dois.
+  veiculoId         String? @map("veiculo_id")
+  equipamentoFrioId String? @map("equipamento_frio_id")
+  planoId           String? @map("plano_id")
+
+  executadoEm DateTime @map("executado_em") @db.Timestamptz(3)
+  /// leitura do painel no momento da execucao; nula no plano que vence por dias
+  medicao     Decimal? @db.Decimal(12, 1)
+  /// intervalo aplicado e medicao do proximo vencimento, congelados na execucao:
+  /// mudar o plano depois nao pode reescrever o que ja foi feito
+  intervalo   Decimal  @db.Decimal(12, 1)
+  proxima     Decimal  @db.Decimal(12, 1)
+
+  /// o que foi usado, quando saiu do estoque ou da nota
+  itemId         String?  @map("item_id")
+  quantidade     Decimal? @db.Decimal(12, 3)
+  custo          Decimal? @db.Decimal(14, 2)
+  oficina        String?
+  ordemServicoId String?  @map("ordem_servico_id")
+  observacao     String?
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+
+  unidade         Unidade                @relation(fields: [unidadeId], references: [id])
+  veiculo         Veiculo?               @relation(fields: [veiculoId], references: [id])
+  equipamentoFrio EquipamentoFrio?       @relation(fields: [equipamentoFrioId], references: [id])
+  plano           PlanoServicoPeriodico? @relation(fields: [planoId], references: [id])
+  item            Item?                  @relation(fields: [itemId], references: [id])
+  ordemServico    OrdemServico?          @relation(fields: [ordemServicoId], references: [id])
+
+  @@index([veiculoId, tipo, executadoEm])
+  @@index([equipamentoFrioId, tipo, executadoEm])
+  @@index([unidadeId, tipo])
+  @@map("servicos_periodicos")
+}
+
+/// Bateria como ativo proprio (secao 7.11).
+///
+/// Nao e coluna do veiculo pelo mesmo motivo do pneu e do aparelho de frio: ela troca de
+/// caminhao, volta para o estoque, vai para garantia e tem historico de medicao que
+/// precisa sobreviver a isso tudo.
+model Bateria {
+  id        String        @id
+  unidadeId String        @map("unidade_id")
+  /// etiqueta que a operacao escreve na carcaca; e por ela que se acha a bateria no patio
+  identificacao String
+  marca         String?
+  modelo        String?
+  numeroSerie   String?   @map("numero_serie")
+  /// capacidade em amperes-hora e tensao nominal do banco (12 V ou 24 V)
+  amperagem     Int?
+  tensaoNominal Decimal?  @map("tensao_nominal") @db.Decimal(5, 2)
+
+  dataCompra    DateTime? @map("data_compra") @db.Date
+  custo         Decimal?  @db.Decimal(14, 2)
+  garantiaMeses Int?      @map("garantia_meses")
+  /// vida util prevista para esta bateria; sem isto vale o padrao da secao 7.11
+  vidaUtilMeses Int?      @map("vida_util_meses")
+
+  status StatusBateria @default(EM_ESTOQUE)
+
+  /// onde esta agora, e desde quando
+  veiculoId           String?   @map("veiculo_id")
+  posicao             Int?
+  instaladaEm         DateTime? @map("instalada_em") @db.Timestamptz(3)
+  hodometroInstalacao Decimal?  @map("hodometro_instalacao") @db.Decimal(12, 1)
+  retiradaEm          DateTime? @map("retirada_em") @db.Timestamptz(3)
+  motivoRetirada      String?   @map("motivo_retirada")
+  observacao          String?
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+
+  unidade  Unidade           @relation(fields: [unidadeId], references: [id])
+  veiculo  Veiculo?          @relation(fields: [veiculoId], references: [id])
+  medicoes MedicaoBateria[]
+
+  @@unique([unidadeId, identificacao])
+  @@index([unidadeId, status])
+  @@index([veiculoId])
+  @@map("baterias")
+}
+
+/// Medicao de tensao, append-only (secao 7.11): o historico e o que mostra a queda.
+model MedicaoBateria {
+  id        String   @id
+  bateriaId String   @map("bateria_id")
+  medidoEm  DateTime @map("medido_em") @db.Timestamptz(3)
+  /// tensao em repouso, com o motor desligado - a unica que diz o estado do elemento
+  tensaoV   Decimal  @map("tensao_v") @db.Decimal(5, 2)
+  /// densidade do eletrolito, quando a bateria permite medir
+  densidade Decimal? @db.Decimal(5, 3)
+  /// leitura feita logo apos rodar mede o alternador, e nao a bateria; fica marcado
+  aposRodar Boolean  @default(false) @map("apos_rodar")
+  hodometro Decimal? @db.Decimal(12, 1)
+  observacao String?
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String?   @map("created_by")
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  bateria Bateria @relation(fields: [bateriaId], references: [id])
+
+  @@index([bateriaId, medidoEm])
+  @@map("medicoes_bateria")
+}
+
+/// Historico de medidor (ADR 0023, decisao 6).
+///
+/// Toda alteracao de hodometro ou horimetro passa por aqui, venha de onde vier: portaria,
+/// checklist, execucao na oficina, abastecimento ou digitacao. Sem esse rastro nao ha como
+/// dizer **de onde saiu** o numero que decide se o caminhao entra no box — e nem como
+/// calcular km/dia, que e o que transforma "faltam 1.200 km" em "vence em 6 dias".
+///
+/// Append-only: leitura suspeita nao se corrige apagando, se confirma ou se ignora.
+model Leitura {
+  id        String      @id
+  unidadeId String      @map("unidade_id")
+  tipo      TipoMedidor
+  valor     Decimal     @db.Decimal(12, 1)
+  medidoEm  DateTime    @map("medido_em") @db.Timestamptz(3)
+  origem    OrigemLeitura
+
+  /// o ativo lido: veiculo (odometro/horimetro do veiculo) ou aparelho de frio
+  veiculoId         String? @map("veiculo_id")
+  equipamentoFrioId String? @map("equipamento_frio_id")
+
+  /// o que gerou a leitura, para voltar ao documento de origem
+  abastecimentoId    String? @map("abastecimento_id")
+  servicoPeriodicoId String? @map("servico_periodico_id")
+  acessoPortariaId   String? @map("acesso_portaria_id")
+
+  /// leitura que nao fecha com a anterior; confirmada por alguem, vira historico normal
+  suspeita      SuspeitaLeitura?
+  observacao    String?
+  confirmadaPor String?          @map("confirmada_por")
+  confirmadaEm  DateTime?        @map("confirmada_em") @db.Timestamptz(3)
+  /// a leitura avancou o cadastro do ativo, ou so ficou no historico
+  avancouAtivo  Boolean          @default(false) @map("avancou_ativo")
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String?   @map("created_by")
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  unidade         Unidade          @relation(fields: [unidadeId], references: [id])
+  veiculo         Veiculo?         @relation(fields: [veiculoId], references: [id])
+  equipamentoFrio EquipamentoFrio? @relation(fields: [equipamentoFrioId], references: [id])
+
+  @@index([veiculoId, tipo, medidoEm])
+  @@index([equipamentoFrioId, tipo, medidoEm])
+  @@index([unidadeId, suspeita])
+  @@map("leituras")
+}
+
+/// OS: prontuario do ativo. Peca sai do almoxarifado por requisicao vinculada (secoes 7.5 e 8.2).
+model OrdemServico {
+  id                 String             @id
+  numero             String             @unique
+  unidadeId          String             @map("unidade_id")
+  veiculoId          String             @map("veiculo_id")
+  tipo               TipoOrdemServico
+  origem             OrigemOrdemServico @default(MANUAL)
+  /// entidade que originou a OS: checklist, abastecimento, inspecao de pneu ou plano
+  origemId           String?            @map("origem_id")
+  planoId            String?            @map("plano_id")
+  descricao          String
+  oficina            String?
+  terceiro           Boolean            @default(false)
+  abertaEm           DateTime           @default(now()) @map("aberta_em") @db.Timestamptz(3)
+  iniciadaEm         DateTime?          @map("iniciada_em") @db.Timestamptz(3)
+  fechadaEm          DateTime?          @map("fechada_em") @db.Timestamptz(3)
+  hodometro          Decimal?           @db.Decimal(12, 1)
+  horimetro          Decimal?           @db.Decimal(12, 1)
+  custoPecas         Decimal            @default(0) @map("custo_pecas") @db.Decimal(14, 2)
+  custoMaoObra       Decimal            @default(0) @map("custo_mao_obra") @db.Decimal(14, 2)
+  custoTotal         Decimal            @default(0) @map("custo_total") @db.Decimal(14, 2)
+  tempoParadoHoras   Decimal?           @map("tempo_parado_horas") @db.Decimal(10, 2)
+  status             StatusOrdemServico @default(ABERTA)
+  motivoCancelamento String?            @map("motivo_cancelamento")
+
+  /// Fechamento (secao 7.5): o que o mecanico anotou na folha impressa entra aqui.
+  /// Total x parcial nao e detalhe de relatorio - a parcial deixa trabalho para tras.
+  conclusaoTipo     TipoConclusaoOs? @map("conclusao_tipo")
+  anotacoesMecanico String?          @map("anotacoes_mecanico")
+  mecanico          String?
+  /// obrigatorio na parcial; vira a descricao da OS de retorno
+  pendencia         String?
+  /// OS aberta para carregar a pendencia desta; nulo quando a conclusao foi total
+  osRetornoId       String?          @unique @map("os_retorno_id")
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt         DateTime?        @map("deleted_at") @db.Timestamptz(3)
+  createdBy         String?          @map("created_by")
+  updatedBy         String?          @map("updated_by")
+
+  unidade Unidade            @relation(fields: [unidadeId], references: [id])
+  veiculo Veiculo            @relation(fields: [veiculoId], references: [id])
+  plano   PlanoManutencao?   @relation(fields: [planoId], references: [id])
+  itens   OrdemServicoItem[]
+  servicosPeriodicos ServicoPeriodico[]
+
+  /// a OS de retorno aponta de volta para a que a originou, e vice-versa
+  osRetorno OrdemServico? @relation("OsRetorno", fields: [osRetornoId], references: [id])
+  osOrigem  OrdemServico? @relation("OsRetorno")
+
+  @@index([unidadeId, status])
+  @@index([veiculoId, abertaEm])
+  @@map("ordens_servico")
+}
+
+/// Item de servico ou peca da OS. Peca do catalogo baixa estoque na requisicao.
+model OrdemServicoItem {
+  id             String   @id
+  osId           String   @map("os_id")
+  descricao      String
+  itemId         String?  @map("item_id")
+  quantidade     Decimal  @default(1) @db.Decimal(14, 4)
+  custoUnitario  Decimal  @default(0) @map("custo_unitario") @db.Decimal(14, 4)
+  custo          Decimal  @default(0) @db.Decimal(14, 2)
+  maoDeObra      Boolean  @default(false) @map("mao_de_obra")
+  /// movimentacao de saida no almoxarifado; nulo enquanto a peca nao foi requisitada
+  movimentacaoId String?  @map("movimentacao_id")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  os   OrdemServico @relation(fields: [osId], references: [id])
+  item Item?        @relation(fields: [itemId], references: [id])
+
+  @@index([osId])
+  @@map("os_itens")
+}
+
+/// Multa de transito (secao 7.6). Alimenta o ranking de infracoes e a pontuacao do M4.
+model Multa {
+  id             String         @id
+  unidadeId      String         @map("unidade_id")
+  veiculoId      String         @map("veiculo_id")
+  /// nulo enquanto o condutor nao foi indicado
+  motoristaId    String?        @map("motorista_id")
+  ait            String         @unique
+  dataInfracao   DateTime       @map("data_infracao") @db.Timestamptz(3)
+  local          String
+  descricao      String
+  gravidade      GravidadeMulta
+  valor          Decimal        @db.Decimal(14, 2)
+  pontos         Int            @default(0)
+  prazoIndicacao DateTime?      @map("prazo_indicacao") @db.Timestamptz(3)
+  prazoRecurso   DateTime?      @map("prazo_recurso") @db.Timestamptz(3)
+  status         StatusMulta    @default(REGISTRADA)
+  anexoId        String?        @map("anexo_id")
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt      DateTime?      @map("deleted_at") @db.Timestamptz(3)
+  createdBy      String?        @map("created_by")
+  updatedBy      String?        @map("updated_by")
+
+  unidade   Unidade    @relation(fields: [unidadeId], references: [id])
+  veiculo   Veiculo    @relation(fields: [veiculoId], references: [id])
+  motorista Motorista? @relation(fields: [motoristaId], references: [id])
+
+  @@index([unidadeId, status])
+  @@index([motoristaId, dataInfracao])
+  @@map("multas")
+}
+
+// ---------------------------------------------------------------- M4 PESSOAS (F8)
+
+model Colaborador {
+  id        String            @id
+  unidadeId String            @map("unidade_id")
+  usuarioId String?           @unique @map("usuario_id")
+  matricula String            @unique
+  nome      String
+  cargo     String
+  setor     String
+  admissao  DateTime          @db.Timestamptz(3)
+  /// dados usuais do cadastro; o CPF identifica a pessoa entre matriculas que mudam
+  cpf            String?   @unique
+  telefone       String?
+  email          String?
+  dataNascimento DateTime? @map("data_nascimento") @db.Date
+  /// gestor imediato: e quem decide a contestacao (secao 9.2)
+  gestorId  String?           @map("gestor_id")
+  status    StatusColaborador @default(ATIVO)
+  fotoUrl   String?           @map("foto_url")
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime?         @map("deleted_at") @db.Timestamptz(3)
+  createdBy String?           @map("created_by")
+  updatedBy String?           @map("updated_by")
+
+  /// Inativacao: nada se exclui, inativa-se com motivo e trilha (regra de ouro 2)
+  inativadoEm      DateTime? @map("inativado_em") @db.Timestamptz(3)
+  inativadoPor     String?   @map("inativado_por")
+  motivoInativacao String?   @map("motivo_inativacao")
+
+  unidade     Unidade           @relation(fields: [unidadeId], references: [id])
+  usuario     Usuario?          @relation("ColaboradorUsuario", fields: [usuarioId], references: [id])
+  gestor      Colaborador?      @relation("ColaboradorGestor", fields: [gestorId], references: [id])
+  liderados   Colaborador[]     @relation("ColaboradorGestor")
+  ocorrencias Ocorrencia[]
+  pontuacoes  PontuacaoMensal[]
+
+  @@index([unidadeId, setor])
+  @@index([status])
+  @@map("colaboradores")
+}
+
+/// Criterio de pontuacao (secao 9.1). Peso e descricao editaveis em tela pela gestao.
+model CriterioPontuacao {
+  id            String       @id
+  codigo        String       @unique
+  tipo          TipoCriterio
+  descricao     String
+  /// sempre positivo; o sinal vem do tipo
+  peso          Int
+  /// true quando o sistema propoe a ocorrencia; ela nasce SUGERIDA (secao 9.2)
+  automatico    Boolean      @default(false)
+  eventoGatilho String?      @map("evento_gatilho")
+  ativo         Boolean      @default(true)
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy     String?      @map("updated_by")
+
+  ocorrencias Ocorrencia[]
+
+  @@map("criterios_pontuacao")
+}
+
+/// Ocorrencia de pontuacao. Nunca se apaga: reverter marca o registro (secao 9.2).
+model Ocorrencia {
+  id                 String           @id
+  colaboradorId      String           @map("colaborador_id")
+  criterioId         String           @map("criterio_id")
+  /// competencia 'YYYY-MM' - congelada no fechamento mensal
+  competencia        String
+  /// pontos ja com sinal, congelados no lancamento: mudar o peso do criterio
+  /// depois nao pode reescrever o passado
+  pontos             Int
+  descricao          String
+  evidenciaTipo      String?          @map("evidencia_tipo")
+  evidenciaId        String?          @map("evidencia_id")
+  anexoId            String?          @map("anexo_id")
+  status             StatusOcorrencia @default(VALIDADA)
+  lancadoPor         String?          @map("lancado_por")
+  lancadoEm          DateTime         @default(now()) @map("lancado_em") @db.Timestamptz(3)
+  /// prazo em dias uteis para o colaborador contestar (secao 9.2)
+  contestarAte       DateTime?        @map("contestar_ate") @db.Timestamptz(3)
+  contestadaEm       DateTime?        @map("contestada_em") @db.Timestamptz(3)
+  contestacaoTexto   String?          @map("contestacao_texto")
+  contestacaoAnexoId String?          @map("contestacao_anexo_id")
+  decisao            String?
+  decididoPor        String?          @map("decidido_por")
+  decididoEm         DateTime?        @map("decidido_em") @db.Timestamptz(3)
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  colaborador Colaborador       @relation(fields: [colaboradorId], references: [id])
+  criterio    CriterioPontuacao @relation(fields: [criterioId], references: [id])
+
+  @@index([colaboradorId, competencia])
+  @@index([status])
+  @@map("ocorrencias")
+}
+
+/// Extrato mensal congelado no fechamento (secao 9.3).
+model PontuacaoMensal {
+  id              String    @id
+  colaboradorId   String    @map("colaborador_id")
+  competencia     String
+  pontosBase      Int       @map("pontos_base")
+  pontosPositivos Int       @map("pontos_positivos")
+  pontosNegativos Int       @map("pontos_negativos")
+  pontosFinal     Int       @map("pontos_final")
+  ocorrencias     Int       @default(0)
+  fechadoEm       DateTime? @map("fechado_em") @db.Timestamptz(3)
+  fechadoPor      String?   @map("fechado_por")
+  pdfAnexoId      String?   @map("pdf_anexo_id")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  colaborador Colaborador @relation(fields: [colaboradorId], references: [id])
+
+  @@unique([colaboradorId, competencia])
+  @@index([competencia])
+  @@map("pontuacao_mensal")
+}
+
+// ---------------------------------------------------------------- F12 PORTARIA E CONTROLE DE ACESSO
+
+/// Quem chega de fora (secao 14.1). O tipo muda o que a portaria exige, nao a tabela.
+enum TipoPessoaExterna {
+  VISITANTE
+  MOTORISTA_EXTERNO
+  CLIENTE
+  FORNECEDOR
+  PRESTADOR
+}
+
+/// O que passa pela guarita: gente a pe, veiculo de terceiro ou caminhao da casa.
+enum TipoAcesso {
+  PESSOA
+  VEICULO_EXTERNO
+  VEICULO_PROPRIO
+}
+
+/// Ciclo do acesso (secao 14.2). VEICULO_PROPRIO comeca dentro: sai e volta.
+enum StatusAcesso {
+  AGENDADO
+  NO_PATIO
+  EM_TRANSITO
+  ENCERRADO
+  CANCELADO
+  RECUSADO
+}
+
+enum GravidadeOcorrenciaPortaria {
+  BAIXA
+  MEDIA
+  ALTA
+}
+
+/// Rota comercial de pre-venda e entrega (secao 14.2).
+///
+/// Cadastro proprio: na guarita a rota e escolhida, nunca digitada, para que o movimento
+/// do portao case com o roteiro que a area comercial ja opera. Rota que sai do roteiro e
+/// **inativada**, nunca apagada - ela responde por acessos antigos.
+model Rota {
+  id           String    @id
+  unidadeId    String    @map("unidade_id")
+  codigo       String
+  nome         String
+  /// tamanho e cadencia do roteiro, como vem da planilha comercial
+  vendedores   Int?
+  diasPreVenda Int?      @map("dias_pre_venda")
+  fechamento   String?
+  largada      String?
+  ativo        Boolean   @default(true)
+  observacao   String?
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdBy    String?   @map("created_by")
+  updatedBy    String?   @map("updated_by")
+
+  /// Inativacao: nada se exclui, inativa-se com motivo e trilha (regra de ouro 2)
+  inativadoEm      DateTime? @map("inativado_em") @db.Timestamptz(3)
+  inativadoPor     String?   @map("inativado_por")
+  motivoInativacao String?   @map("motivo_inativacao")
+
+  unidade Unidade          @relation(fields: [unidadeId], references: [id])
+  acessos AcessoPortaria[]
+
+  @@unique([unidadeId, codigo])
+  @@index([unidadeId, ativo])
+  @@map("rotas")
+}
+
+/// Guarita ou cancela. Uma unidade pode ter mais de uma, e o movimento sai por ponto.
+model PontoAcesso {
+  id        String    @id
+  unidadeId String    @map("unidade_id")
+  codigo    String
+  nome      String
+  ativo     Boolean   @default(true)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+
+  unidade     Unidade              @relation(fields: [unidadeId], references: [id])
+  acessos     AcessoPortaria[]
+  ocorrencias OcorrenciaPortaria[]
+
+  @@unique([unidadeId, codigo])
+  @@map("pontos_acesso")
+}
+
+/// Cadastro reaproveitavel de quem vem de fora: na segunda visita ninguem redigita documento.
+model PessoaExterna {
+  id            String            @id
+  unidadeId     String?           @map("unidade_id")
+  nome          String
+  /// CPF quando houver; documento livre (RG, CNH, passaporte) quando nao
+  documento     String            @unique
+  tipo          TipoPessoaExterna
+  empresa       String?
+  telefone      String?
+  fotoUrl       String?           @map("foto_url")
+  /// motorista de terceiro: a portaria confere a CNH como confere a do proprio
+  cnhNumero     String?           @map("cnh_numero")
+  cnhVencimento DateTime?         @map("cnh_vencimento") @db.Timestamptz(3)
+  observacao    String?
+
+  /// Lista restritiva: entrada barrada com motivo registrado, nunca por decisao de guarita
+  bloqueado      Boolean   @default(false)
+  motivoBloqueio String?   @map("motivo_bloqueio")
+  bloqueadoEm    DateTime? @map("bloqueado_em") @db.Timestamptz(3)
+  bloqueadoPor   String?   @map("bloqueado_por")
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+
+  /// Inativacao: nada se exclui, inativa-se com motivo e trilha (regra de ouro 2)
+  inativadoEm      DateTime? @map("inativado_em") @db.Timestamptz(3)
+  inativadoPor     String?   @map("inativado_por")
+  motivoInativacao String?   @map("motivo_inativacao")
+
+  unidade Unidade?         @relation(fields: [unidadeId], references: [id])
+  acessos AcessoPortaria[]
+
+  @@index([nome])
+  @@index([tipo, bloqueado])
+  @@map("pessoas_externas")
+}
+
+/// Um movimento pela guarita, da entrada a saida (secao 14.2).
+///
+/// `entradaEm` e `saidaEm` sao literalmente os eventos do portao. Para o caminhao da casa,
+/// que comeca dentro, a ordem se inverte: primeiro `saidaEm` (foi para a rota), depois
+/// `entradaEm` (retornou) - e por isso ele fica EM_TRANSITO, nao NO_PATIO.
+model AcessoPortaria {
+  id            String       @id
+  unidadeId     String       @map("unidade_id")
+  pontoAcessoId String       @map("ponto_acesso_id")
+  tipo          TipoAcesso
+  status        StatusAcesso @default(NO_PATIO)
+
+  /// quem entrou: pessoa de fora, ou motorista e veiculo da casa
+  pessoaExternaId String? @map("pessoa_externa_id")
+  motoristaId     String? @map("motorista_id")
+  veiculoId       String? @map("veiculo_id")
+  /// veiculo de terceiro nao tem cadastro: a placa e o identificador
+  placaExterna    String? @map("placa_externa")
+  transportadora  String?
+
+  /// a quem se destina a visita, e quem autorizou a entrada
+  destino         String?
+  responsavelId   String? @map("responsavel_id")
+  autorizadoPorId String? @map("autorizado_por_id")
+  motivo          String
+
+  previstoPara DateTime? @map("previsto_para") @db.Timestamptz(3)
+  entradaEm    DateTime? @map("entrada_em") @db.Timestamptz(3)
+  saidaEm      DateTime? @map("saida_em") @db.Timestamptz(3)
+
+  /// cracha entregue na entrada e cobrado na saida
+  cracha           String?
+  crachaDevolvido  Boolean  @default(false) @map("cracha_devolvido")
+  /// carga do caminhao proprio: rota, nota e hodometro fecham a viagem
+  /// `lacre` foi substituido pela rota cadastrada; a coluna fica pelos registros antigos
+  rotaId           String?  @map("rota_id")
+  lacre            String?
+  notaFiscal       String?  @map("nota_fiscal")
+  cargaDescricao   String?  @map("carga_descricao")
+  hodometroSaida   Decimal? @map("hodometro_saida") @db.Decimal(12, 1)
+  hodometroRetorno Decimal? @map("hodometro_retorno") @db.Decimal(12, 1)
+
+  observacaoEntrada  String? @map("observacao_entrada")
+  observacaoSaida    String? @map("observacao_saida")
+  motivoEncerramento String? @map("motivo_encerramento")
+
+  registradoEntradaPor String? @map("registrado_entrada_por")
+  registradoSaidaPor   String? @map("registrado_saida_por")
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+
+  unidade       Unidade              @relation(fields: [unidadeId], references: [id])
+  pontoAcesso   PontoAcesso          @relation(fields: [pontoAcessoId], references: [id])
+  pessoaExterna PessoaExterna?       @relation(fields: [pessoaExternaId], references: [id])
+  motorista     Motorista?           @relation(fields: [motoristaId], references: [id])
+  veiculo       Veiculo?             @relation(fields: [veiculoId], references: [id])
+  rota          Rota?                @relation(fields: [rotaId], references: [id])
+  responsavel   Usuario?             @relation("AcessoResponsavel", fields: [responsavelId], references: [id])
+  autorizadoPor Usuario?             @relation("AcessoAutorizador", fields: [autorizadoPorId], references: [id])
+  transicoes    AcessoTransicao[]
+  ocorrencias   OcorrenciaPortaria[]
+
+  @@index([unidadeId, status])
+  /// recorte do relatorio de movimento: unidade + janela de datas (secao 14.5)
+  @@index([unidadeId, createdAt])
+  @@index([status, entradaEm])
+  @@index([placaExterna])
+  @@index([veiculoId, saidaEm])
+  @@index([pessoaExternaId])
+  @@index([rotaId])
+  @@map("acessos_portaria")
+}
+
+/// Append-only: a portaria e registro, e registro nao se reescreve (secao 14.2).
+model AcessoTransicao {
+  id        String       @id
+  acessoId  String       @map("acesso_id")
+  de        StatusAcesso
+  para      StatusAcesso
+  motivo    String?
+  usuarioId String       @map("usuario_id")
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  acesso AcessoPortaria @relation(fields: [acessoId], references: [id])
+
+  @@index([acessoId, createdAt])
+  @@map("acesso_transicoes")
+}
+
+/// Ocorrencia da guarita (secao 14.4): tentativa barrada, avaria, cracha nao devolvido, recusa.
+model OcorrenciaPortaria {
+  id            String                      @id
+  unidadeId     String                      @map("unidade_id")
+  pontoAcessoId String?                     @map("ponto_acesso_id")
+  acessoId      String?                     @map("acesso_id")
+  gravidade     GravidadeOcorrenciaPortaria @default(BAIXA)
+  descricao     String
+  ocorridoEm    DateTime                    @map("ocorrido_em") @db.Timestamptz(3)
+  anexoId       String?                     @map("anexo_id")
+  registradoPor String                      @map("registrado_por")
+  createdAt     DateTime                    @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  unidade     Unidade         @relation(fields: [unidadeId], references: [id])
+  pontoAcesso PontoAcesso?    @relation(fields: [pontoAcessoId], references: [id])
+  acesso      AcessoPortaria? @relation(fields: [acessoId], references: [id])
+
+  @@index([unidadeId, ocorridoEm])
+  @@index([gravidade])
+  @@map("ocorrencias_portaria")
+}
+
+/// Maquina de refrigeracao do bau (secao 7.1).
+///
+/// E ativo proprio, e nao coluna do veiculo: a planilha da frota registra aparelho
+/// mudando de caminhao ("APARELHO FOI PRO SNH3B02"), e equipamento que anda entre
+/// veiculos precisa de identidade, horimetro e historico seus - como o pneu.
+model EquipamentoFrio {
+  id              String                @id
+  unidadeId       String                @map("unidade_id")
+  marca           String
+  modelo          String?
+  /// numero de serie do fabricante; identifica o aparelho quando ele troca de veiculo
+  numeroSerie     String?               @map("numero_serie")
+  tipoAcionamento TipoAcionamentoFrio   @default(DIESEL) @map("tipo_acionamento")
+  ano             Int?
+  /// horimetro proprio: o aparelho tem vida util contada em horas, nao em km
+  horimetro       Decimal?              @db.Decimal(12, 1)
+  status          StatusEquipamentoFrio @default(ATIVO)
+  observacao      String?
+  /// veiculo onde o aparelho esta agora; nulo quando esta fora de uso ou em transferencia
+  veiculoId       String?               @map("veiculo_id")
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+
+  unidade Unidade  @relation(fields: [unidadeId], references: [id])
+  veiculo Veiculo? @relation(fields: [veiculoId], references: [id])
+  servicosPeriodicos ServicoPeriodico[]
+  leituras           Leitura[]
+
+  @@index([unidadeId, status])
+  @@index([veiculoId])
+  @@index([numeroSerie])
+  @@map("equipamentos_frio")
+}

@@ -1,0 +1,104 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "-w",
+        "@sgi/web"
+      ],
+      "port": 5173
+    },
+    {
+      "name": "checklist-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "C:/checklist/app",
+        "run",
+        "dev"
+      ],
+      "port": 5180
+    },
+    {
+      "name": "api",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "-w",
+        "@sgi/api"
+      ],
+      "port": 3333
+    },
+    {
+      "name": "dashboard-medias",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "-y",
+        "serve",
+        "-l",
+        "5190",
+        "dashboards/medias-mensais/site"
+      ],
+      "port": 5190
+    },
+    {
+      "name": "escala",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "C:/escala/escala-ceara",
+        "run",
+        "dev"
+      ],
+      "port": 5181
+    },
+    {
+      "name": "farol-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "C:/prospect",
+        "run",
+        "dev",
+        "-w",
+        "@farol/web"
+      ],
+      "port": 5180
+    },
+    {
+      "name": "pop10",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "C:/check_list_frigorifico",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5183",
+        "--strictPort"
+      ],
+      "port": 5183
+    },
+    {
+      "name": "sgp-frota",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "C:/controle_abastecimento/app",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5184",
+        "--strictPort"
+      ],
+      "port": 5184
+    }
+  ]
+}

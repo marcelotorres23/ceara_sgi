@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Médias da Frota — Ceará Alimentos</title>
+<style>
+/* Paleta GUIA-MARCA-001 — Ceará Alimentos.
+   Azul é a base, dourado é acento (proporção 60/30/10 do manual).
+   Os neutros são puxados para o azul da marca, nunca cinza puro. */
+:root{
+  --azul:#16469D;        /* Azul Ceará — estrutura, séries principais */
+  --azul-inst:#09409D;   /* Azul Institucional — fundos cheios */
+  --azul-luz:#5B8AE8;    /* tint do azul, legível sobre fundo escuro */
+  --ouro:#F3AE00;        /* Amarelo-Ouro — acento, filetes, objetivo */
+  --ouro-luz:#FFC736;
+  --verde:#1E7A44; --verde-luz:#35A55F;      /* dentro da meta */
+  --vermelho:#C0392B; --vermelho-luz:#E0614F; /* fora da meta */
+  --bg:#060A14; --card:#0E1626; --card-2:#152036;
+  --borda:rgba(91,138,232,.15); --borda-forte:rgba(91,138,232,.32);
+  --txt:#F2F4F8;         /* Cinza Névoa da marca */
+  --txt-2:#A8B4CC; --txt-3:#6B7A96;
+  --r:16px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;
+ -webkit-font-smoothing:antialiased;padding:32px 28px 56px;min-height:100vh;
+ background-image:radial-gradient(1200px 560px at 10% -10%,rgba(9,64,157,.55),transparent 62%),
+                  radial-gradient(760px 400px at 94% 2%,rgba(243,174,0,.09),transparent 64%);
+ background-attachment:fixed}
+.wrap{max-width:1400px;margin:0 auto}
+header{display:flex;flex-wrap:wrap;gap:22px;align-items:flex-end;justify-content:space-between;
+ margin-bottom:28px;padding-bottom:22px;border-bottom:1px solid var(--borda);position:relative}
+header::after{content:'';position:absolute;left:0;bottom:-1px;width:104px;height:3px;border-radius:2px;background:var(--ouro)}
+.marca{display:flex;align-items:center;gap:20px}
+.marca img{height:56px;width:auto;display:block}
+.divisa{width:1px;height:44px;background:var(--borda-forte)}
+h1{font-size:26px;font-weight:700;letter-spacing:-.02em;display:flex;align-items:center;gap:11px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--verde-luz);box-shadow:0 0 0 4px rgba(53,165,95,.16),0 0 16px var(--verde-luz);animation:p 2.4s infinite}
+@media(max-width:620px){.marca{flex-direction:column;align-items:flex-start;gap:14px}.divisa{display:none}}
+@keyframes p{0%,100%{opacity:1}50%{opacity:.45}}
+.sub{color:var(--txt-2);font-size:13px;margin-top:7px}
+.sub b{color:var(--txt);font-weight:500}
+.filtros{display:flex;gap:8px;flex-wrap:wrap}
+.seg{display:flex;gap:3px;background:var(--card);border:1px solid var(--borda);border-radius:12px;padding:4px}
+.seg button{background:none;border:0;color:var(--txt-2);font:500 12.5px/1 inherit;padding:9px 15px;border-radius:9px;cursor:pointer;transition:.18s}
+.seg button:hover{color:var(--txt);background:var(--card-2)}
+.seg button.on{background:linear-gradient(135deg,var(--azul-inst),#1a5ac4);color:#fff;box-shadow:0 4px 16px rgba(9,64,157,.55)}
+.seg button:focus-visible,select:focus-visible{outline:2px solid var(--ouro);outline-offset:2px}
+select{background:var(--card);border:1px solid var(--borda);color:var(--txt);border-radius:12px;padding:11px 14px;font:500 12.5px inherit;cursor:pointer;max-width:230px}
+select:focus{outline:none;border-color:var(--azul-luz)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:16px;margin-bottom:22px}
+.card{background:linear-gradient(160deg,var(--card),#0A101C);border:1px solid var(--borda);border-radius:var(--r);padding:20px 22px;transition:.22s;position:relative;overflow:hidden}
+.card::after{content:'';position:absolute;inset:0 0 auto;height:1px;background:linear-gradient(90deg,transparent,var(--borda-forte),transparent)}
+.kpi:hover{transform:translateY(-3px);border-color:var(--borda-forte);box-shadow:0 14px 34px rgba(0,0,0,.55)}
+.kpi .lab{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--txt-3);font-weight:600}
+.kpi .val{font-size:32px;font-weight:700;letter-spacing:-.03em;margin:11px 0 9px;font-variant-numeric:tabular-nums}
+.kpi .val small{font-size:14px;font-weight:500;color:var(--txt-2);margin-left:4px}
+.delta{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:4px 9px;border-radius:99px}
+.up{background:rgba(53,165,95,.15);color:var(--verde-luz)}
+.down{background:rgba(224,97,79,.15);color:var(--vermelho-luz)}
+.flat{background:rgba(91,138,232,.10);color:var(--txt-2)}
+.delta span{color:var(--txt-3);font-weight:500}
+.grid{display:grid;gap:18px;margin-bottom:18px}
+.g2{grid-template-columns:1fr 1fr}
+@media(max-width:980px){.g2{grid-template-columns:1fr}}
+/* título de seção com filete dourado abaixo — device do manual da marca */
+.ch h3{font-size:15px;font-weight:600;letter-spacing:-.01em;padding-bottom:9px;position:relative}
+.ch h3::after{content:'';position:absolute;left:0;bottom:0;width:38px;height:2px;border-radius:2px;background:var(--ouro)}
+.ch .ins{font-size:12.5px;color:var(--txt-2);margin:10px 0 18px;line-height:1.5}
+.ch .ins b{color:var(--txt)}
+svg{display:block;width:100%;overflow:visible}
+.gl{stroke:rgba(91,138,232,.13)}
+.ax{fill:var(--txt-3);font-size:10.5px;font-weight:500}
+.bar{transition:opacity .15s;cursor:pointer}
+.bar:hover{opacity:.78}
+.leg{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:11.5px;color:var(--txt-2)}
+.leg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:7px;vertical-align:-1px}
+.rolagem{overflow-x:auto}
+.tab{width:100%;border-collapse:collapse;font-size:12.5px;min-width:760px}
+.tab th{text-align:left;font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--txt-3);padding:0 10px 11px;font-weight:600;border-bottom:1px solid var(--borda)}
+.tab td{padding:11px 10px;border-bottom:1px solid rgba(91,138,232,.08);font-variant-numeric:tabular-nums}
+.tab tr:last-child td{border-bottom:0}
+.tab tbody tr:nth-child(even){background:rgba(91,138,232,.035)}
+.tab tbody tr:hover{background:rgba(91,138,232,.09)}
+.num{text-align:right}
+.pill{display:inline-block;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:600}
+.ok{background:rgba(53,165,95,.15);color:var(--verde-luz)}
+.no{background:rgba(224,97,79,.15);color:var(--vermelho-luz)}
+footer{text-align:center;color:var(--txt-3);font-size:11.5px;margin-top:34px;padding-top:22px;
+ border-top:1px solid var(--borda);line-height:1.8}
+#tip{position:fixed;pointer-events:none;opacity:0;transform:translate(-50%,-118%);background:#0B1220;border:1px solid var(--borda-forte);
+ border-radius:11px;padding:11px 13px;font-size:12px;line-height:1.65;box-shadow:0 16px 40px rgba(0,0,0,.65);transition:opacity .12s;z-index:99;white-space:nowrap}
+#tip b{color:#fff}#tip .k{color:var(--txt-3)}
+.anim{opacity:0;transform:translateY(14px);animation:in .55s cubic-bezier(.2,.7,.3,1) forwards}
+@keyframes in{to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.anim,.dot{animation:none;opacity:1;transform:none}*{transition:none!important}}
+.err{background:rgba(192,57,43,.14);border:1px solid rgba(224,97,79,.38);color:var(--vermelho-luz);padding:14px 18px;border-radius:12px;font-size:13px;margin-bottom:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="anim">
+    <div>
+      <div class="marca">
+        <img id="logo" src="logo-ceara.png" alt="Ceará Alimentos — Distribuindo Qualidade">
+        <span class="divisa"></span>
+        <h1><span class="dot"></span>Médias da Frota — Live</h1>
+      </div>
+      <div class="sub" id="sub">Carregando…</div>
+    </div>
+    <div class="filtros">
+      <div class="seg" id="periodo"></div>
+      <select id="rota"></select>
+      <select id="motorista"></select>
+      <select id="placa"></select>
+    </div>
+  </header>
+  <div id="app"></div>
+  <footer>
+    Dados consolidados de <b>REL. MEN. DAS MÉDIAS MENSAL.xlsx</b> — Ceará Alimentos · Gestão de Frota<br>
+    Identidade visual conforme GUIA-MARCA-001 · Azul Ceará #16469D · Amarelo-Ouro #F3AE00<br>
+    <span id="rodape"></span>
+  </footer>
+</div>
+<div id="tip"></div>
+<script>
+const F={
+ n:(v,d=0)=>(isFinite(v)?v:0).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d}),
+ dt:s=>new Date(s+'T00:00:00').toLocaleDateString('pt-BR'),
+ mes:m=>{const a=m.split('-');return['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'][+a[1]-1]+'/'+a[0].slice(2)},
+ mesLongo:m=>{const a=m.split('-');return['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][+a[1]-1]+' de '+a[0]}
+};
+const PERIODOS=[['30','Últimos 30 dias'],['90','Últimos 90 dias'],['180','6 meses'],['365','12 meses'],['0','Tudo']];
+const DIMENSOES=[['rota','Todas as rotas'],['motorista','Todos os motoristas'],['placa','Todas as placas']];
+let DADOS=null, estado={periodo:'0',rota:'__todas',motorista:'__todas',placa:'__todas'};
+
+async function carregar(){
+  let j=null;
+  try{ const r=await fetch('dados.json',{cache:'no-store'}); if(r.ok) j=await r.json(); }catch(e){}
+  if(!j && window.__DADOS_EMBUTIDOS) j=window.__DADOS_EMBUTIDOS;
+  if(!j){document.getElementById('app').innerHTML='<div class="err">Não foi possível carregar <b>dados.json</b>. Rode <code>node gerar.js</code> e publique o arquivo junto do dashboard.</div>';return;}
+  const c=j.campos;
+  DADOS=Object.assign({},j,{viagens:j.linhas.map(l=>{const o={};c.forEach((k,i)=>o[k]=l[i]);o.mes=o.data.slice(0,7);return o;})});
+  montarFiltros(); render();
+}
+function montarFiltros(){
+  document.getElementById('periodo').innerHTML=PERIODOS.map(p=>
+    '<button data-p="'+p[0]+'" class="'+(p[0]===estado.periodo?'on':'')+'">'+p[1]+'</button>').join('');
+  document.querySelectorAll('#periodo button').forEach(b=>b.onclick=()=>{estado.periodo=b.dataset.p;montarFiltros();render();});
+  /* cada lista mostra só o que sobra depois dos outros filtros — nunca oferece combinação vazia */
+  DIMENSOES.forEach(d=>{
+    const campo=d[0], s=document.getElementById(campo);
+    const opcoes=[...new Set(filtrar(campo).map(v=>v[campo]))].sort();
+    if(estado[campo]!=='__todas'&&opcoes.indexOf(estado[campo])<0)opcoes.push(estado[campo]);
+    s.innerHTML='<option value="__todas">'+d[1]+'</option>'+
+      opcoes.sort().map(o=>'<option value="'+o+'">'+o+'</option>').join('');
+    s.value=estado[campo];
+    s.onchange=()=>{estado[campo]=s.value;montarFiltros();render();};
+  });
+}
+/* filtrar(ignorar) aplica todos os filtros menos a dimensão informada */
+function filtrar(ignorar){
+  let v=DADOS.viagens;
+  DIMENSOES.forEach(d=>{
+    const campo=d[0];
+    if(campo!==ignorar&&estado[campo]!=='__todas')v=v.filter(x=>x[campo]===estado[campo]);
+  });
+  if(estado.periodo!=='0'&&DADOS.viagens.length){
+    const fim=new Date(DADOS.viagens[DADOS.viagens.length-1].data+'T00:00:00');
+    const ini=new Date(fim); ini.setDate(ini.getDate()-(+estado.periodo));
+    const iso=ini.toISOString().slice(0,10);
+    v=v.filter(x=>x.data>=iso);
+  }
+  return v;
+}
+/* média da frota = km total / litros totais (ponderada, nunca média de médias) */
+function agregar(v){
+  const km=v.reduce((a,b)=>a+b.km,0), lt=v.reduce((a,b)=>a+b.litros,0);
+  const comObj=v.filter(x=>x.objetivo>0);
+  const kmO=comObj.reduce((a,b)=>a+b.km,0), ltO=comObj.reduce((a,b)=>a+b.km/b.objetivo,0);
+  return{n:v.length,km:km,lt:lt,horas:v.reduce((a,b)=>a+b.horas,0),
+    media:lt?km/lt:0, objetivo:ltO?kmO/ltO:0,
+    placas:new Set(v.map(x=>x.placa)).size, motoristas:new Set(v.map(x=>x.motorista)).size};
+}
+function porMes(v){const m={};v.forEach(x=>{(m[x.mes]=m[x.mes]||[]).push(x);});
+  return Object.keys(m).sort().map(k=>Object.assign({mes:k},agregar(m[k])));}
+function porChave(v,k){const m={};v.forEach(x=>{(m[x[k]]=m[x[k]]||[]).push(x);});
+  return Object.entries(m).map(e=>Object.assign({nome:e[0]},agregar(e[1]))).sort((a,b)=>b.km-a.km);}
+
+/* delta sempre compara o último mês fechado da seleção com o mês anterior */
+function delta(atual,ant,dec,suf,rotulo){
+  dec=dec||0; suf=suf||'';
+  if(atual===undefined||atual===null||ant===undefined||ant===null||!isFinite(ant)||ant===0)
+    return '<div class="delta flat">— <span>sem mês anterior para comparar</span></div>';
+  const d=atual-ant, p=d/ant*100, plano=Math.abs(p)<0.05;
+  const cls=plano?'flat':(d>0?'up':'down'), seta=plano?'→':(d>0?'▲':'▼');
+  return '<div class="delta '+cls+'">'+seta+' '+F.n(Math.abs(p),1)+'% <span>'+rotulo+': '+
+    F.n(ant,dec)+suf+' → '+F.n(atual,dec)+suf+'</span></div>';
+}
+function kpi(lab,val,un,d){return '<div class="card kpi anim"><div class="lab">'+lab+'</div><div class="val">'+val+
+  (un?'<small>'+un+'</small>':'')+'</div>'+d+'</div>';}
+
+function render(){
+  const v=filtrar(), app=document.getElementById('app');
+  if(!v.length){app.innerHTML='<div class="err">Nenhuma viagem no filtro selecionado.</div>';return;}
+  const t=agregar(v), meses=porMes(v);
+  const m1=meses[meses.length-1], m0=meses[meses.length-2];
+  const acima=meses.filter(m=>m.media>=m.objetivo).length;
+  const ultima=new Date(v[v.length-1].data+'T00:00:00');
+  const fimDoMes=new Date(ultima.getFullYear(),ultima.getMonth()+1,0).getDate();
+  const parcial=ultima.getDate()<fimDoMes-2;
+
+  document.getElementById('sub').innerHTML=
+    '<b>'+F.n(t.n)+'</b> viagens · <b>'+F.n(t.km)+'</b> km · <b>'+F.n(t.lt,0)+'</b> L · '+
+    F.dt(v[0].data)+' a '+F.dt(v[v.length-1].data)+' · Última atualização: <b>'+
+    new Date(DADOS.gerado_em).toLocaleString('pt-BR')+'</b><br>'+
+    'Os números grandes somam todo o período filtrado; a variação abaixo compara o último mês com o anterior.';
+  document.getElementById('rodape').textContent=
+    DADOS.descartadas+' linhas descartadas na consolidação (sem litros, sem km ou média fora da faixa 0,5–15 km/L).';
+
+  const rot=m0?F.mes(m0.mes)+' → '+F.mes(m1.mes):'';
+
+  app.innerHTML=
+  '<div class="kpis">'+
+    kpi('Média realizada',F.n(t.media,2),'km/L',delta(m1.media,m0&&m0.media,2,' km/L',rot))+
+    kpi('Objetivo (média ideal)',F.n(t.objetivo,2),'km/L',delta(m1.objetivo,m0&&m0.objetivo,2,' km/L',rot))+
+    kpi('Total de viagens',F.n(t.n),'',delta(m1.n,m0&&m0.n,0,'',rot))+
+    kpi('Km percorridos',F.n(t.km),'km',delta(m1.km,m0&&m0.km,0,' km',rot))+
+    kpi('Litros consumidos',F.n(t.lt,0),'L',delta(m1.lt,m0&&m0.lt,0,' L',rot))+
+  '</div>'+
+  '<div class="grid"><div class="card ch anim">'+
+    '<h3>Evolução mês a mês — média realizada vs. compromisso</h3>'+
+    '<div class="ins">'+acima+' de '+meses.length+' meses <b>acima do compromisso</b> · barra verde = meta batida, vermelha = abaixo · traço dourado = objetivo do mês.'+
+      (parcial?' <b>'+F.mes(m1.mes)+' ainda está em curso</b> (dados até '+F.dt(v[v.length-1].data)+'), por isso aparece com volume menor.':'')+'</div>'+
+    barrasMes(meses)+
+    '<div class="leg"><span><i style="background:#35A55F"></i>Acima do compromisso</span>'+
+    '<span><i style="background:#E0614F"></i>Abaixo do compromisso</span>'+
+    '<span><i style="background:#F3AE00"></i>Objetivo (média ideal)</span></div>'+
+  '</div></div>'+
+  '<div class="grid g2">'+
+    '<div class="card ch anim"><h3>Viagens por mês</h3>'+
+    '<div class="ins">Volume de operações consolidado — '+F.n(t.n)+' viagens, '+F.n(t.placas)+' placas e '+F.n(t.motoristas)+' motoristas no período.</div>'+
+    barrasSimples(meses.map(m=>({r:F.mes(m.mes),v:m.n,t:'<b>'+F.mes(m.mes)+'</b><br><span class="k">Viagens</span> <b>'+F.n(m.n)+
+      '</b><br><span class="k">% do total</span> <b>'+F.n(m.n/t.n*100,1)+'%</b><br><span class="k">Km</span> '+F.n(m.km)})),'#5B8AE8')+
+    '</div>'+
+    '<div class="card ch anim"><h3>Média por rota</h3>'+
+    '<div class="ins">Top 10 rotas por quilometragem — a barra é a média realizada e o traço dourado, o objetivo da rota.</div>'+
+    barrasH(porChave(v,'rota').slice(0,10))+'</div>'+
+  '</div>'+
+  '<div class="grid g2">'+
+    '<div class="card ch anim"><h3>Média por motorista</h3>'+
+    '<div class="ins">Top 10 motoristas por quilometragem rodada no período.</div>'+
+    barrasH(porChave(v,'motorista').slice(0,10))+'</div>'+
+    '<div class="card ch anim"><h3>Média por placa</h3>'+
+    '<div class="ins">Top 10 veículos por quilometragem rodada no período.</div>'+
+    barrasH(porChave(v,'placa').slice(0,10))+'</div>'+
+  '</div>'+
+  '<div class="card ch anim"><h3>Consolidado mensal</h3>'+
+  '<div class="ins">Base única do ano — cada mês com viagens, km, litros, média realizada, objetivo e aderência.</div>'+
+  tabela(meses)+'</div>';
+  ligarTooltips();
+}
+
+function escala(vals){const mx=Math.max.apply(null,vals);const p=Math.pow(10,Math.floor(Math.log10(mx||1)));
+  return Math.ceil(mx/p*1.15)*p;}
+function barrasMes(ms){
+  const W=1000,H=330,ml=44,mb=34,mt=12;
+  const max=Math.max.apply(null,ms.map(m=>Math.max(m.media,m.objetivo)))*1.18;
+  const bw=(W-ml)/ms.length, y=v=>mt+(H-mt-mb)*(1-v/max);
+  let s='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Evolução mensal da média realizada contra o objetivo">'+
+   '<defs><linearGradient id="gv" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#35A55F"/><stop offset="1" stop-color="#1E7A44"/></linearGradient>'+
+   '<linearGradient id="gr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E0614F"/><stop offset="1" stop-color="#C0392B"/></linearGradient>'+
+   '<linearGradient id="gf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgba(9,64,157,.30)"/><stop offset="1" stop-color="rgba(9,64,157,0)"/></linearGradient></defs>'+
+   '<rect x="'+ml+'" y="'+mt+'" width="'+(W-ml)+'" height="'+(H-mt-mb)+'" fill="url(#gf)" rx="8"/>';
+  for(let i=0;i<=5;i++){const tv=max*i/5;
+    s+='<line class="gl" x1="'+ml+'" y1="'+y(tv)+'" x2="'+W+'" y2="'+y(tv)+'" stroke-width="1"/>'+
+       '<text class="ax" x="'+(ml-9)+'" y="'+(y(tv)+4)+'" text-anchor="end">'+F.n(tv,1)+'</text>';}
+  ms.forEach((m,i)=>{
+    const x=ml+i*bw, w=bw*.56, cx=x+bw/2, ok=m.media>=m.objetivo, alt=(H-mt-mb)-(y(m.media)-mt);
+    const tip='<b>'+F.mesLongo(m.mes)+'</b><br><span class="k">Média realizada</span> <b>'+F.n(m.media,2)+
+      ' km/L</b><br><span class="k">Objetivo</span> <b>'+F.n(m.objetivo,2)+' km/L</b><br><span class="k">Aderência</span> <b>'+
+      F.n(m.media/m.objetivo*100,1)+'%</b><br><span class="k">Viagens</span> '+F.n(m.n)+' · <span class="k">Km</span> '+F.n(m.km);
+    s+='<rect class="bar" data-tip="'+encodeURIComponent(tip)+'" x="'+(cx-w/2)+'" y="'+y(m.media)+'" width="'+w+'" height="'+Math.max(alt,1)+
+       '" rx="6" fill="url(#'+(ok?'gv':'gr')+')" style="filter:drop-shadow(0 0 12px '+(ok?'rgba(53,165,95,.40)':'rgba(224,97,79,.35)')+')"/>'+
+       '<text class="ax" x="'+cx+'" y="'+(y(m.media)-8)+'" text-anchor="middle" fill="'+(ok?'#35A55F':'#E0614F')+'" font-weight="700">'+F.n(m.media,2)+'</text>'+
+       '<line x1="'+(cx-w/2-6)+'" y1="'+y(m.objetivo)+'" x2="'+(cx+w/2+6)+'" y2="'+y(m.objetivo)+'" stroke="#F3AE00" stroke-width="2.5" stroke-linecap="round"/>'+
+       '<text class="ax" x="'+cx+'" y="'+(H-mb+20)+'" text-anchor="middle">'+F.mes(m.mes)+'</text>';
+  });
+  return s+'</svg>';
+}
+function barrasSimples(d,cor){
+  const W=1000,H=250,ml=44,mb=30,mt=10,max=escala(d.map(x=>x.v)),bw=(W-ml)/d.length,y=v=>mt+(H-mt-mb)*(1-v/max);
+  let s='<svg viewBox="0 0 '+W+' '+H+'">';
+  for(let i=0;i<=4;i++){const tv=max*i/4;
+    s+='<line class="gl" x1="'+ml+'" y1="'+y(tv)+'" x2="'+W+'" y2="'+y(tv)+'" stroke-width="1"/>'+
+       '<text class="ax" x="'+(ml-9)+'" y="'+(y(tv)+4)+'" text-anchor="end">'+F.n(tv)+'</text>';}
+  d.forEach((x,i)=>{const cx=ml+i*bw+bw/2,w=bw*.52;
+    s+='<rect class="bar" data-tip="'+encodeURIComponent(x.t)+'" x="'+(cx-w/2)+'" y="'+y(x.v)+'" width="'+w+'" height="'+
+       Math.max((H-mt-mb)-(y(x.v)-mt),1)+'" rx="6" fill="'+cor+'" opacity=".85"/>'+
+       '<text class="ax" x="'+cx+'" y="'+(H-mb+19)+'" text-anchor="middle">'+x.r+'</text>';});
+  return s+'</svg>';
+}
+function barrasH(d){
+  const lh=34,W=1000,ml=210,H=d.length*lh+14;
+  const max=Math.max.apply(null,d.map(x=>Math.max(x.media,x.objetivo)))*1.15;
+  const x=v=>ml+(W-ml-56)*(v/max);
+  let s='<svg viewBox="0 0 '+W+' '+H+'">';
+  d.forEach((r,i)=>{
+    const yy=i*lh+8, ok=r.media>=r.objetivo, nome=r.nome.length>26?r.nome.slice(0,25)+'…':r.nome;
+    const tip='<b>'+r.nome+'</b><br><span class="k">Média realizada</span> <b>'+F.n(r.media,2)+
+      ' km/L</b><br><span class="k">Objetivo</span> <b>'+F.n(r.objetivo,2)+' km/L</b><br><span class="k">Viagens</span> '+
+      F.n(r.n)+' · <span class="k">Km</span> '+F.n(r.km)+'<br><span class="k">Litros</span> '+F.n(r.lt,0)+' L';
+    s+='<text class="ax" x="'+(ml-14)+'" y="'+(yy+15)+'" text-anchor="end" fill="#9AA0B0">'+nome+'</text>'+
+       '<rect x="'+ml+'" y="'+(yy+3)+'" width="'+(W-ml-56)+'" height="18" rx="9" fill="rgba(91,138,232,.07)"/>'+
+       '<rect class="bar" data-tip="'+encodeURIComponent(tip)+'" x="'+ml+'" y="'+(yy+3)+'" width="'+Math.max(x(r.media)-ml,2)+
+       '" height="18" rx="9" fill="'+(ok?'#35A55F':'#E0614F')+'" opacity=".9"/>'+
+       '<line x1="'+x(r.objetivo)+'" y1="'+yy+'" x2="'+x(r.objetivo)+'" y2="'+(yy+24)+'" stroke="#F3AE00" stroke-width="2.5" stroke-linecap="round"/>'+
+       '<text class="ax" x="'+(W-48)+'" y="'+(yy+16)+'" fill="'+(ok?'#35A55F':'#E0614F')+'" font-weight="700">'+F.n(r.media,2)+'</text>';});
+  return s+'</svg>';
+}
+function tabela(ms){
+  return '<div class="rolagem"><table class="tab"><thead><tr><th>Mês</th><th class="num">Viagens</th><th class="num">Km</th>'+
+    '<th class="num">Litros</th><th class="num">Média realizada</th><th class="num">Objetivo</th><th class="num">Aderência</th><th>Status</th></tr></thead><tbody>'+
+    ms.slice().reverse().map(m=>{const ok=m.media>=m.objetivo;return '<tr><td>'+F.mesLongo(m.mes)+'</td><td class="num">'+F.n(m.n)+
+      '</td><td class="num">'+F.n(m.km)+'</td><td class="num">'+F.n(m.lt,0)+
+      '</td><td class="num" style="color:'+(ok?'#35A55F':'#E0614F')+';font-weight:600">'+F.n(m.media,2)+
+      '</td><td class="num" style="color:#F3AE00">'+F.n(m.objetivo,2)+
+      '</td><td class="num">'+F.n(m.media/m.objetivo*100,1)+'%</td><td><span class="pill '+(ok?'ok':'no')+'">'+
+      (ok?'Dentro da meta':'Abaixo da meta')+'</span></td></tr>';}).join('')+'</tbody></table></div>';
+}
+function ligarTooltips(){
+  const tip=document.getElementById('tip');
+  document.querySelectorAll('[data-tip]').forEach(el=>{
+    el.addEventListener('mousemove',e=>{tip.innerHTML=decodeURIComponent(el.dataset.tip);tip.style.opacity=1;
+      tip.style.left=Math.min(Math.max(e.clientX,140),innerWidth-140)+'px';tip.style.top=(e.clientY-10)+'px';});
+    el.addEventListener('mouseleave',()=>{tip.style.opacity=0;});
+  });
+}
+carregar();
+</script>
+</body>
+</html>
